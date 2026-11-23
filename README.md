@@ -88,10 +88,10 @@ Place the application in `/opt/zupuvault` (owned by your service user, e.g. `ubu
 ```bash
 sudo mkdir -p /opt/zupuvault
 sudo chown -R ubuntu:ubuntu /opt/zupuvault
-cd /opt/zupuvault
 
 # Clone the ZupuVault repository into /opt/zupuvault
-git clone https://github.com/BaatarChan/zupuvault.git .
+git clone https://github.com/BaatarChan/zupuvault.git /opt/zupuvault
+cd /opt/zupuvault
 
 # Install dependencies
 npm install

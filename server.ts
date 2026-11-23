@@ -54,7 +54,7 @@ function parseCliArg(flag: string): string | undefined {
   return prefixed ? prefixed.slice(flag.length + 1) : undefined;
 }
 
-const DEFAULT_PORT = 3100;
+const DEFAULT_PORT = 3000;
 const cliPort = Number(parseCliArg('--port'));
 const envPort = Number(process.env.PORT);
 const PORT =

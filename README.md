@@ -106,9 +106,9 @@ cp /opt/zupuvault/.env.example /opt/zupuvault/.env
 
 cat <<EOF > /opt/zupuvault/.env
 NODE_ENV=production
-# Change PORT (e.g. 3200) if another app on your server already uses 3100,
+# Change PORT (e.g. 3100) if another app on your server already uses 3000,
 # and match the same port in your Nginx proxy_pass directive below.
-PORT=3100
+PORT=3000
 APP_URL="https://zupu.yourdomain.com"
 
 # Persistent 32+ byte secret used to sign session tokens and seal TOTP MFA secrets at rest.
@@ -184,7 +184,7 @@ Inspect logs anytime with:
 journalctl -u zupuvault -f
 ```
 
-You should see: `ZupuVault sovereign server running on http://0.0.0.0:3100`.
+You should see: `ZupuVault sovereign server running on http://0.0.0.0:3000`.
 
 ### 9. Enable HTTPS & Brute-Force Rate Limiting on Your Existing Nginx Server
 
@@ -231,7 +231,7 @@ server {
     # Strict brute-force rate limiting on authentication, Passkey login, TOTP MFA & invite redemption
     location ~ ^/api/auth/(login|mfa/verify|register-invite|claim-custody|passkeys/login-options|passkeys/login-verify)$ {
         limit_req zone=zupu_auth_strict burst=5 nodelay;
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -243,7 +243,7 @@ server {
     # General API protection
     location /api/ {
         limit_req zone=zupu_api_general burst=20 nodelay;
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -253,7 +253,7 @@ server {
     }
 
     location / {
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -324,7 +324,7 @@ server {
     # Strict rate limit on login, Passkey login, TOTP verification, invite & custody endpoints
     location ~ ^/api/auth/(login|mfa/verify|register-invite|claim-custody|passkeys/login-options|passkeys/login-verify)$ {
         limit_req zone=zupu_auth_strict burst=5 nodelay;
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -335,7 +335,7 @@ server {
 
     location /api/ {
         limit_req zone=zupu_api_general burst=20 nodelay;
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -345,7 +345,7 @@ server {
     }
 
     location / {
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -481,4 +481,4 @@ npm install
 npm run dev
 ```
 
-The development server runs at `http://localhost:3100` (port `3100` by default, or set `PORT=...` / `--port ...`, serving Vite middleware and Express APIs together).
+The development server runs at `http://localhost:3000` (port `3000` by default, or set `PORT=...` / `--port ...`, serving Vite middleware and Express APIs together).

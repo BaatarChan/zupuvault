@@ -1,0 +1,6 @@
+{
+  "name": "ZupuVault — Sovereign Chinese Family Lineage System",
+  "description": "Encrypted Chinese-style family tree (Zupu) with client-side AES-256-GCM cryptography, TOTP multi-factor authentication, granular per-member RBAC, and offline-first local storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

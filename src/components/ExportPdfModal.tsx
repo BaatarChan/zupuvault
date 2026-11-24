@@ -40,6 +40,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
     currentUser.permissions.canViewLivingPII
   );
   const [includeSealedTestaments, setIncludeSealedTestaments] = useState(false);
+  const [pdfACompliant, setPdfACompliant] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +49,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
       setBranchScope(lockedBranch ? currentUser.permissions.branchScope : initialBranch);
       setIncludeLivingPII(currentUser.permissions.canViewLivingPII);
       setIncludeSealedTestaments(false);
+      setPdfACompliant(true);
       setError(null);
     }
   }, [open, lockedBranch, currentUser.permissions.branchScope, currentUser.permissions.canViewLivingPII, initialBranch]);
@@ -74,6 +76,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
         includeTreeOverview,
         includeLivingPII,
         includeSealedTestaments,
+        pdfACompliant,
       });
       onExported?.();
       onClose();
@@ -182,6 +185,23 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
                 <span>{t.pdf.sealedRestricted}</span>
               </p>
             )}
+
+            <div className="pt-2 border-t border-stone-100">
+              <label className="flex items-start gap-2.5 text-xs text-stone-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pdfACompliant}
+                  onChange={(e) => setPdfACompliant(e.target.checked)}
+                  className="mt-0.5 accent-[#9E2A2B]"
+                />
+                <span>
+                  <span className="font-medium text-stone-900 block">{t.pdf.pdfACompliant}</span>
+                  <span className="text-[11px] text-stone-500 leading-relaxed">
+                    {t.pdf.pdfACompliantHint}
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="flex items-center justify-between text-xs text-stone-600 pt-1">

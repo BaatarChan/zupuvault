@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { AccessRolesPanel } from './components/AccessRolesPanel';
 import { AuthGate } from './components/AuthGate';
@@ -18,6 +18,7 @@ import { api, setInMemoryAuthToken, type AuthStatusResponse } from './lib/api';
 import { decryptMemberRecord, encryptMemberRecord } from './lib/crypto';
 import { useI18n } from './lib/i18n';
 import {
+  createOfflineSnapshot,
   getPendingSyncFlag,
   getStorageModePreference,
   loadLocalEncryptedVault,
@@ -36,6 +37,27 @@ import type {
 } from './types/zupu';
 
 type WorkspaceTab = 'tree' | 'ledger' | 'chronology' | 'roles' | 'mfa' | 'offline';
+
+const AUTO_LOCK_STORAGE_KEY = 'zupu_auto_lock_minutes';
+const VALID_AUTO_LOCK_MINUTES = [0, 5, 15, 30, 60] as const;
+
+function readInitialAutoLockMinutes(): number {
+  try {
+    const raw = window.localStorage.getItem(AUTO_LOCK_STORAGE_KEY);
+    const parsed = raw !== null ? Number(raw) : 15;
+    return VALID_AUTO_LOCK_MINUTES.includes(parsed as (typeof VALID_AUTO_LOCK_MINUTES)[number])
+      ? parsed
+      : 15;
+  } catch {
+    return 15;
+  }
+}
+
+function formatCountdown(totalSec: number): string {
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 export default function App() {
   const { locale, t } = useI18n();
@@ -71,6 +93,11 @@ export default function App() {
     serverRevision?: number;
   } | null>(null);
 
+  const [autoLockMinutes, setAutoLockMinutes] = useState<number>(readInitialAutoLockMinutes);
+  const [autoLockRemainingSec, setAutoLockRemainingSec] = useState<number | null>(null);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const lastActivityAtRef = useRef<number>(Date.now());
+
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const refreshBootState = async () => {
@@ -105,6 +132,7 @@ export default function App() {
     chosenMode: StorageMode
   ) => {
     setGlobalError(null);
+    setLockNotice(null);
     setCurrentUser(user);
     setStorageMode(chosenMode);
     await setStorageModePreference(chosenMode).catch(() => undefined);
@@ -207,6 +235,7 @@ export default function App() {
     isNewlyCreated: boolean
   ) => {
     setGlobalError(null);
+    setLockNotice(null);
     setVaultKey(key);
     setActiveBundle(bundle);
     setMembers(decryptedMembers);
@@ -221,24 +250,90 @@ export default function App() {
     }
   };
 
-  const handleLockVault = async () => {
-    if (storageMode === 'hybrid_sync') {
-      await api.logout().catch(() => undefined);
+  const handleLockVault = useCallback(
+    async (reasonNotice?: string) => {
+      if (storageMode === 'hybrid_sync') {
+        await api.logout().catch(() => undefined);
+      }
+      setInMemoryAuthToken(null);
+      setVaultKey(null);
+      setActiveBundle(null);
+      setExistingBundle(null);
+      setMembers([]);
+      setCurrentUser(null);
+      setSelectedMemberId(null);
+      setIsCreateMode(false);
+      setAuditOpen(false);
+      setServerRevision(undefined);
+      setConflictState(null);
+      setAutoLockRemainingSec(null);
+      setLockNotice(reasonNotice ?? null);
+      setActiveTab('tree');
+      await refreshBootState();
+    },
+    [storageMode]
+  );
+
+  const handleChangeAutoLockMinutes = (minutes: number) => {
+    const normalized = VALID_AUTO_LOCK_MINUTES.includes(
+      minutes as (typeof VALID_AUTO_LOCK_MINUTES)[number]
+    )
+      ? minutes
+      : 15;
+    setAutoLockMinutes(normalized);
+    try {
+      window.localStorage.setItem(AUTO_LOCK_STORAGE_KEY, String(normalized));
+    } catch {
+      // Storage may be restricted
     }
-    setInMemoryAuthToken(null);
-    setVaultKey(null);
-    setActiveBundle(null);
-    setExistingBundle(null);
-    setMembers([]);
-    setCurrentUser(null);
-    setSelectedMemberId(null);
-    setIsCreateMode(false);
-    setAuditOpen(false);
-    setServerRevision(undefined);
-    setConflictState(null);
-    setActiveTab('tree');
-    await refreshBootState();
   };
+
+  useEffect(() => {
+    if (!activeBundle || !vaultKey || autoLockMinutes <= 0) {
+      setAutoLockRemainingSec(null);
+      return;
+    }
+
+    lastActivityAtRef.current = Date.now();
+    setAutoLockRemainingSec(autoLockMinutes * 60);
+
+    let lastRecordedTouch = 0;
+    const bumpActivity = () => {
+      const now = Date.now();
+      if (now - lastRecordedTouch < 1000) return;
+      lastRecordedTouch = now;
+      lastActivityAtRef.current = now;
+    };
+
+    const events: (keyof WindowEventMap)[] = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'touchstart',
+      'scroll',
+    ];
+    for (const evt of events) {
+      window.addEventListener(evt, bumpActivity, { passive: true });
+    }
+
+    const timer = window.setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - lastActivityAtRef.current) / 1000);
+      const remaining = autoLockMinutes * 60 - elapsedSec;
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        void handleLockVault(t.mfa.autoLockNotice);
+      } else {
+        setAutoLockRemainingSec(remaining);
+      }
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+      for (const evt of events) {
+        window.removeEventListener(evt, bumpActivity);
+      }
+    };
+  }, [activeBundle, vaultKey, autoLockMinutes, handleLockVault, t.mfa.autoLockNotice]);
 
   const handleSaveMember = async (saved: DecryptedMember, isNew: boolean) => {
     if (!vaultKey || !activeBundle) return;
@@ -408,6 +503,39 @@ export default function App() {
     }
   };
 
+  const handleHistoryRolledBack = async (
+    restored: EncryptedVaultBundle,
+    nextServerRev: number
+  ) => {
+    setGlobalError(null);
+    await saveLocalEncryptedVault(restored);
+    setHasLocalVault(true);
+    setServerRevision(nextServerRev);
+    setConflictState(null);
+    await setPendingSyncFlag(false);
+    setPendingSync(false);
+
+    if (vaultKey) {
+      try {
+        const decrypted = await Promise.all(
+          restored.records.map((env) => decryptMemberRecord(vaultKey, env))
+        );
+        setActiveBundle(restored);
+        setMembers(decrypted);
+        setSelectedMemberId(null);
+        return;
+      } catch {
+        // Revision uses an earlier passphrase; drop to passphrase gate
+      }
+    }
+
+    setExistingBundle(restored);
+    setActiveBundle(null);
+    setVaultKey(null);
+    setMembers([]);
+    setSelectedMemberId(null);
+  };
+
   const handleImportMembers = async (
     imported: DecryptedMember[],
     mode: 'merge' | 'replace',
@@ -415,6 +543,11 @@ export default function App() {
   ) => {
     if (!vaultKey || !activeBundle) return;
     setGlobalError(null);
+
+    await createOfflineSnapshot(
+      activeBundle,
+      `Auto-backup before ${sourceLabel} (${mode})`
+    ).catch(() => undefined);
 
     let nextMembers: DecryptedMember[];
     if (mode === 'replace') {
@@ -462,6 +595,7 @@ export default function App() {
       <AuthGate
         authStatus={authStatus}
         hasLocalOfflineVault={hasLocalVault}
+        infoNotice={lockNotice}
         onAuthenticated={handleAuthenticated}
       />
     );
@@ -472,7 +606,7 @@ export default function App() {
       <ForcePasswordChangeModal
         user={currentUser}
         onPasswordUpdated={(updated) => setCurrentUser(updated)}
-        onSignOut={handleLockVault}
+        onSignOut={() => void handleLockVault()}
       />
     );
   }
@@ -483,8 +617,9 @@ export default function App() {
         user={currentUser}
         storageMode={storageMode}
         existingBundle={existingBundle}
+        infoNotice={lockNotice}
         onUnlocked={handleVaultUnlocked}
-        onSignOut={handleLockVault}
+        onSignOut={() => void handleLockVault()}
       />
     );
   }
@@ -534,11 +669,16 @@ export default function App() {
 
           <button
             type="button"
-            onClick={handleLockVault}
+            onClick={() => void handleLockVault()}
             className="px-4 py-2 text-xs font-medium bg-[#9E2A2B] hover:bg-[#822021] text-white rounded-lg transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
             <Lock className="w-3.5 h-3.5" />
-            {t.common.lockVault}
+            <span>{t.common.lockVault}</span>
+            {autoLockRemainingSec !== null && (
+              <span className="font-mono-tabular text-[11px] text-white/85 pl-1 border-l border-white/25">
+                {formatCountdown(autoLockRemainingSec)}
+              </span>
+            )}
           </button>
         </div>
 
@@ -660,8 +800,10 @@ export default function App() {
           <SecurityMfaPanel
             currentUser={currentUser}
             storageMode={storageMode}
-            metadata={activeBundle.metadata}
+            bundle={activeBundle}
             members={members}
+            autoLockMinutes={autoLockMinutes}
+            onChangeAutoLockMinutes={handleChangeAutoLockMinutes}
             onUserUpdated={setCurrentUser}
             onVaultKeyRotated={async (nextBundle, nextKey) => {
               setVaultKey(nextKey);
@@ -680,6 +822,7 @@ export default function App() {
             onChangeStorageMode={handleChangeStorageMode}
             onSyncNow={handleSyncNow}
             onRestoreBundle={handleRestoreBundle}
+            onHistoryRolledBack={handleHistoryRolledBack}
             onImportMembers={handleImportMembers}
             onRequestExportPdf={() => {
               setExportPdfBranch(currentUser.permissions.branchScope);

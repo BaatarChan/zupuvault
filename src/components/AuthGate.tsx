@@ -9,10 +9,12 @@ import {
 } from '../lib/romanizeName';
 import type { UserProfile } from '../types/zupu';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { SecretInput } from './SecretInput';
 
 interface AuthGateProps {
   authStatus: AuthStatusResponse;
   hasLocalOfflineVault: boolean;
+  infoNotice?: string | null;
   onAuthenticated: (user: UserProfile, mode: 'hybrid_sync' | 'offline_only') => void;
 }
 
@@ -21,6 +23,7 @@ type AuthTab = 'claim' | 'login' | 'invite' | 'mfa';
 export const AuthGate: React.FC<AuthGateProps> = ({
   authStatus,
   hasLocalOfflineVault,
+  infoNotice,
   onAuthenticated,
 }) => {
   const { locale, t } = useI18n();
@@ -270,6 +273,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({
             </div>
           )}
 
+          {infoNotice && (
+            <div className="mb-5 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-xs text-amber-950">
+              {infoNotice}
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -341,13 +350,14 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 <label className="block text-xs font-medium text-stone-700 mb-1.5">
                   {t.auth.custodianPassword}
                 </label>
-                <input
-                  type="password"
+                <SecretInput
                   required
                   minLength={8}
+                  autoComplete="new-password"
+                  showStrengthMeter
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                  onChange={setPassword}
+                  className="px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                 />
               </div>
 
@@ -356,12 +366,11 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                   <label className="block text-xs font-medium text-stone-700 mb-1.5">
                     {t.auth.envPasscodeLabel}
                   </label>
-                  <input
-                    type="password"
+                  <SecretInput
                     required
                     value={adminPasscode}
-                    onChange={(e) => setAdminPasscode(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    onChange={setAdminPasscode}
+                    className="px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                   />
                 </div>
               )}
@@ -398,13 +407,12 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                   <label className="block text-xs font-medium text-stone-700 mb-1.5">
                     {t.auth.passwordLabel}
                   </label>
-                  <input
-                    type="password"
+                  <SecretInput
                     required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={setPassword}
                     autoComplete="current-password"
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    className="px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                   />
                 </div>
                 <button
@@ -512,13 +520,14 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 <label className="block text-xs font-medium text-stone-700 mb-1.5">
                   {t.auth.createPasswordLabel}
                 </label>
-                <input
-                  type="password"
+                <SecretInput
                   required
                   minLength={8}
+                  autoComplete="new-password"
+                  showStrengthMeter
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                  onChange={setPassword}
+                  className="px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                 />
               </div>
               <button

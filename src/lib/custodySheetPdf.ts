@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { configurePdfACompliance } from './pdfa';
 import type { ClanMetadata, UserProfile } from '../types/zupu';
 
 const PAGE_W = 1400;
@@ -177,11 +178,19 @@ export async function downloadHeirCustodySheetPdf(
     unit: 'pt',
     format: 'a4',
     compress: true,
+    putOnlyUsedFonts: true,
+  });
+  configurePdfACompliance(doc, {
+    title: `${metadata.clanChineseName} · ${metadata.clanName} Custody Sheet`,
+    subject: `Heir Custody & Passphrase Recovery Sheet (${metadata.keyFingerprint})`,
+    author: `${custodian.chineseName} (${custodian.displayName})`,
+    keywords: `ZupuVault, Custody Sheet, ${metadata.keyFingerprint}, PDF/A-1b`,
+    creator: 'ZupuVault Sovereign Lineage Archive',
   });
   const a4W = doc.internal.pageSize.getWidth();
   const a4H = doc.internal.pageSize.getHeight();
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   doc.addImage(dataUrl, 'JPEG', 0, 0, a4W, a4H, undefined, 'FAST');
   const slug = metadata.clanName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'zupu';
-  doc.save(`${slug}_heir_custody_sheet.pdf`);
+  doc.save(`${slug}_heir_custody_sheet_pdfa.pdf`);
 }

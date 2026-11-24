@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Copy,
   Check,
+  Crown,
   Eye,
   EyeOff,
   Fingerprint,
@@ -95,6 +96,12 @@ export const AccessRolesPanel: React.FC<AccessRolesPanelProps> = ({
   const [issuedCode, setIssuedCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [creatingInvite, setCreatingInvite] = useState(false);
+
+  const [transferTargetId, setTransferTargetId] = useState('');
+  const [transferPassword, setTransferPassword] = useState('');
+  const [transferTotp, setTransferTotp] = useState('');
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false);
+  const [transferringCustody, setTransferringCustody] = useState(false);
 
   useEffect(() => {
     setRomanizeScheme(defaultRomanizationScheme(locale));
@@ -408,6 +415,14 @@ export const AccessRolesPanel: React.FC<AccessRolesPanelProps> = ({
                         <span className="text-stone-800 font-medium">
                           {getRoleLabel(member.role, locale)}
                         </span>
+                        {member.role !== 'patriarch' && member.permissions.canManageRoles && (
+                          <>
+                            {' · '}
+                            <span className="text-[#9E2A2B] font-medium">
+                              {t.roles.coCustodianBadge}
+                            </span>
+                          </>
+                        )}
                         {' · '}
                         <span>{getBranchLabel(member.permissions.branchScope, locale, branches)}</span>
                         {' · '}
@@ -1096,6 +1111,159 @@ export const AccessRolesPanel: React.FC<AccessRolesPanelProps> = ({
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Patriarch Succession / Transfer Custody */}
+      {storageMode === 'hybrid_sync' && currentUser.role === 'patriarch' && (
+        <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-4">
+          <div className="border-b border-stone-200 pb-4">
+            <h3 className="font-display text-xl font-semibold text-stone-900 flex items-center gap-2">
+              <Crown className="w-4 h-4 text-[#9E2A2B]" />
+              {t.roles.transferTitle}
+            </h3>
+            <p className="text-xs text-stone-500 mt-1">{t.roles.transferDesc}</p>
+          </div>
+
+          {(() => {
+            const eligibleSuccessors = members.filter(
+              (m) => m.id !== currentUser.id && m.status === 'active'
+            );
+            if (eligibleSuccessors.length === 0) {
+              return (
+                <p className="text-xs text-stone-500">{t.roles.noEligibleSuccessor}</p>
+              );
+            }
+            const selectedId =
+              eligibleSuccessors.some((m) => m.id === transferTargetId)
+                ? transferTargetId
+                : eligibleSuccessors[0].id;
+
+            const handleTransfer = async () => {
+              setError(null);
+              setNotice(null);
+              setTransferringCustody(true);
+              try {
+                const res = await api.transferPatriarchCustody({
+                  targetUserId: selectedId,
+                  currentPassword: transferPassword,
+                  totpCode: currentUser.mfaEnabled ? transferTotp : undefined,
+                });
+                onUserUpdated?.(res.currentUser);
+                setTransferPassword('');
+                setTransferTotp('');
+                setConfirmingTransfer(false);
+                await loadData();
+                setNotice(`${t.roles.transferSuccessPrefix} ${res.targetUser.displayName}.`);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Unable to transfer custody');
+              } finally {
+                setTransferringCustody(false);
+              }
+            };
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">
+                    {t.roles.transferTargetLabel}
+                  </label>
+                  <select
+                    value={selectedId}
+                    onChange={(e) => {
+                      setTransferTargetId(e.target.value);
+                      setConfirmingTransfer(false);
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg"
+                  >
+                    {eligibleSuccessors.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.chineseName} · {m.displayName} ({m.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-stone-700 mb-1">
+                    {t.roles.transferPasswordLabel}
+                  </label>
+                  <input
+                    type="password"
+                    value={transferPassword}
+                    onChange={(e) => {
+                      setTransferPassword(e.target.value);
+                      setConfirmingTransfer(false);
+                    }}
+                    placeholder={t.auth.passwordLabel}
+                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-lg"
+                  />
+                </div>
+
+                {currentUser.mfaEnabled ? (
+                  <div>
+                    <label className="block text-xs font-medium text-stone-700 mb-1">
+                      {t.roles.transferTotpLabel}
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={transferTotp}
+                      onChange={(e) => {
+                        setTransferTotp(e.target.value.replace(/\D/g, ''));
+                        setConfirmingTransfer(false);
+                      }}
+                      placeholder="000000"
+                      className="w-full px-3 py-2 text-xs font-mono-tabular bg-white border border-stone-300 rounded-lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="hidden md:block" />
+                )}
+
+                <div className="md:col-span-3">
+                  {!confirmingTransfer ? (
+                    <button
+                      type="button"
+                      disabled={
+                        transferringCustody ||
+                        !transferPassword ||
+                        (currentUser.mfaEnabled && transferTotp.length !== 6)
+                      }
+                      onClick={() => setConfirmingTransfer(true)}
+                      className="px-4 py-2 text-xs font-medium border border-[#9E2A2B]/40 bg-[#FBF9F5] hover:bg-white disabled:opacity-50 text-[#9E2A2B] rounded-lg inline-flex items-center gap-1.5"
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      {t.roles.transferBtn}
+                    </button>
+                  ) : (
+                    <div className="p-3.5 rounded-lg border border-amber-300 bg-amber-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <p className="text-xs text-amber-950">{t.roles.transferConfirmPrompt}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={transferringCustody}
+                          onClick={handleTransfer}
+                          className="px-3.5 py-2 text-xs font-medium bg-[#9E2A2B] hover:bg-[#822021] disabled:opacity-60 text-white rounded-lg whitespace-nowrap"
+                        >
+                          {transferringCustody ? t.roles.transferringBtn : t.roles.transferConfirmBtn}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={transferringCustody}
+                          onClick={() => setConfirmingTransfer(false)}
+                          className="px-3 py-2 text-xs font-medium border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 rounded-lg whitespace-nowrap"
+                        >
+                          {t.common.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </section>
       )}
 

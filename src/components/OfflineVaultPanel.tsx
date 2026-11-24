@@ -6,11 +6,13 @@ import {
   HardDrive,
   History,
   RefreshCw,
+  RotateCcw,
   Trash2,
   Upload,
   WifiOff,
   Server,
 } from 'lucide-react';
+import { api } from '../lib/api';
 import { computeBundleChecksum, createPortableArchive } from '../lib/crypto';
 import { downloadHeirCustodySheetPdf } from '../lib/custodySheetPdf';
 import {
@@ -34,6 +36,7 @@ import type {
   PortableZupuArchive,
   StorageMode,
   UserProfile,
+  VaultRevisionSummary,
 } from '../types/zupu';
 
 interface OfflineVaultPanelProps {
@@ -45,6 +48,7 @@ interface OfflineVaultPanelProps {
   onChangeStorageMode: (mode: StorageMode) => Promise<void>;
   onSyncNow: () => Promise<void>;
   onRestoreBundle: (bundle: EncryptedVaultBundle) => Promise<void>;
+  onHistoryRolledBack?: (bundle: EncryptedVaultBundle, serverRevision: number) => Promise<void>;
   onImportMembers: (
     imported: DecryptedMember[],
     mode: 'merge' | 'replace',
@@ -62,11 +66,14 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
   onChangeStorageMode,
   onSyncNow,
   onRestoreBundle,
+  onHistoryRolledBack,
   onImportMembers,
   onRequestExportPdf,
 }) => {
   const { locale, t } = useI18n();
   const [snapshots, setSnapshots] = useState<OfflineSnapshot[]>([]);
+  const [serverHistory, setServerHistory] = useState<VaultRevisionSummary[]>([]);
+  const [confirmRollbackRev, setConfirmRollbackRev] = useState<number | null>(null);
   const [snapshotLabel, setSnapshotLabel] = useState('');
   const [bundleChecksum, setBundleChecksum] = useState<string>('...');
   const [busy, setBusy] = useState(false);
@@ -80,6 +87,10 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
   const importRef = useRef<HTMLInputElement>(null);
   const interchangeImportRef = useRef<HTMLInputElement>(null);
 
+  const canManageServerHistory =
+    storageMode === 'hybrid_sync' &&
+    (currentUser.role === 'patriarch' || currentUser.permissions.canManageRoles);
+
   useEffect(() => {
     listOfflineSnapshots()
       .then(setSnapshots)
@@ -87,7 +98,37 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
     computeBundleChecksum(bundle)
       .then((sum) => setBundleChecksum(sum.slice(0, 24).toUpperCase()))
       .catch(() => setBundleChecksum('UNAVAILABLE'));
-  }, [bundle]);
+    if (canManageServerHistory) {
+      api
+        .getVaultHistory()
+        .then((res) => setServerHistory(res.history))
+        .catch(() => setServerHistory([]));
+    } else {
+      setServerHistory([]);
+    }
+  }, [bundle, canManageServerHistory]);
+
+  const handleRollbackServerRevision = async (revision: number) => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const res = await api.restoreVaultRevision(revision);
+      setConfirmRollbackRev(null);
+      if (onHistoryRolledBack) {
+        await onHistoryRolledBack(res.bundle, res.serverRevision);
+      } else {
+        await onRestoreBundle(res.bundle);
+      }
+      const refreshed = await api.getVaultHistory().catch(() => ({ history: [] }));
+      setServerHistory(refreshed.history);
+      setNotice(`${t.offline.rollbackSuccess} (#${revision} → rev ${res.serverRevision})`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to roll back server revision');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleCreateSnapshot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -546,6 +587,7 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
               {t.offline.snapshotsTitle} ({snapshots.length})
             </h3>
             <p className="text-xs text-stone-500 mt-0.5">{t.offline.snapshotsDesc}</p>
+            <p className="text-[11px] text-stone-400 mt-1">{t.offline.autoSnapshotHint}</p>
           </div>
 
           <form onSubmit={handleCreateSnapshot} className="flex items-center gap-2">
@@ -610,6 +652,79 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
           </div>
         )}
       </section>
+
+      {/* Server Encrypted Revision History & Rollback */}
+      {canManageServerHistory && (
+        <section className="bg-white border border-stone-200 rounded-xl p-6 space-y-5">
+          <div className="border-b border-stone-200 pb-4">
+            <h3 className="font-display text-xl font-semibold text-stone-900 flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-[#9E2A2B]" />
+              {t.offline.serverHistoryTitle}
+            </h3>
+            <p className="text-xs text-stone-500 mt-0.5">{t.offline.serverHistoryDesc}</p>
+          </div>
+
+          {serverHistory.length === 0 ? (
+            <p className="text-xs text-stone-500 py-2">{t.offline.serverHistoryEmpty}</p>
+          ) : (
+            <div className="divide-y divide-stone-100">
+              {serverHistory.map((item) => {
+                const isConfirming = confirmRollbackRev === item.revision;
+                return (
+                  <div
+                    key={`${item.revision}-${item.savedAt}`}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-900">
+                        <span className="font-mono-tabular text-[#9E2A2B] mr-1.5">
+                          rev #{item.revision}
+                        </span>
+                        {item.summary}
+                      </p>
+                      <p className="text-xs text-stone-500 font-mono-tabular mt-0.5">
+                        {item.savedAt.replace('T', ' ').slice(0, 19)} · {item.savedByName} ·{' '}
+                        {item.recordCount} · {item.keyFingerprint}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isConfirming ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => handleRollbackServerRevision(item.revision)}
+                            className="px-3 py-1.5 text-xs font-medium bg-[#9E2A2B] hover:bg-[#822021] text-white rounded-lg whitespace-nowrap"
+                          >
+                            {t.offline.confirmRollbackBtn}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => setConfirmRollbackRev(null)}
+                            className="px-2.5 py-1.5 text-xs text-stone-600 hover:text-stone-900"
+                          >
+                            {t.common.cancel}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setConfirmRollbackRev(item.revision)}
+                          className="px-3 py-1.5 text-xs font-medium border border-stone-300 rounded-lg hover:bg-stone-50 text-stone-800 whitespace-nowrap"
+                        >
+                          {t.offline.rollbackBtn}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 };

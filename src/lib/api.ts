@@ -5,13 +5,16 @@ import type {
   RegistrationResponseJSON,
 } from '@simplewebauthn/browser';
 import type {
+  ActiveSessionSummary,
   AuditEntry,
   ClanRole,
   EncryptedVaultBundle,
   GranularPermissions,
   InviteRecord,
   PasskeySummary,
+  RecentSignInAlert,
   UserProfile,
+  VaultRevisionSummary,
 } from '../types/zupu';
 
 let inMemoryAuthToken: string | null = null;
@@ -266,4 +269,52 @@ export const api = {
     }),
 
   getAuditLogs: () => apiFetch<{ logs: AuditEntry[] }>('/api/audit'),
+
+  getSessions: () =>
+    apiFetch<{ sessions: ActiveSessionSummary[]; signInAlerts: RecentSignInAlert[] }>(
+      '/api/auth/sessions'
+    ),
+
+  revokeOtherSessions: () =>
+    apiFetch<{
+      ok: boolean;
+      token: string;
+      user: UserProfile;
+      sessions: ActiveSessionSummary[];
+      revokedCount: number;
+    }>('/api/auth/sessions/revoke-others', {
+      method: 'POST',
+    }),
+
+  revokeSession: (sid: string) =>
+    apiFetch<{ ok: boolean; sessions: ActiveSessionSummary[] }>(
+      `/api/auth/sessions/${encodeURIComponent(sid)}`,
+      {
+        method: 'DELETE',
+      }
+    ),
+
+  getVaultHistory: () =>
+    apiFetch<{ history: VaultRevisionSummary[] }>('/api/vault/history'),
+
+  restoreVaultRevision: (revision: number) =>
+    apiFetch<{ ok: boolean; bundle: EncryptedVaultBundle; serverRevision: number }>(
+      `/api/vault/history/${encodeURIComponent(String(revision))}/restore`,
+      {
+        method: 'POST',
+      }
+    ),
+
+  transferPatriarchCustody: (payload: {
+    targetUserId: string;
+    currentPassword: string;
+    totpCode?: string;
+  }) =>
+    apiFetch<{ ok: boolean; currentUser: UserProfile; targetUser: UserProfile }>(
+      '/api/custody/transfer',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    ),
 };

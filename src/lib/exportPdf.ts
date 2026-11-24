@@ -5,6 +5,7 @@ import {
   compareClanMembersByGeneration,
   getBranchRank,
 } from './lineageOrder';
+import { configurePdfACompliance } from './pdfa';
 import {
   getBranchesFromMetadata,
   getBranchLabel,
@@ -31,6 +32,7 @@ export interface ExportPdfOptions {
   includeTreeOverview: boolean;
   includeLivingPII: boolean;
   includeSealedTestaments: boolean;
+  pdfACompliant?: boolean;
 }
 
 type PageOrientation = 'portrait' | 'landscape';
@@ -1178,12 +1180,24 @@ export async function exportZupuPdf(options: ExportPdfOptions): Promise<void> {
 
   drawRunningChrome(pages, options);
 
+  const usePdfA = options.pdfACompliant !== false;
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
     compress: true,
+    putOnlyUsedFonts: true,
   });
+
+  if (usePdfA) {
+    configurePdfACompliance(pdf, {
+      title: `${metadata.clanChineseName} · ${metadata.clanName}`,
+      subject: `${metadata.hallName || 'Ancestral Zupu'} (${metadata.keyFingerprint})`,
+      author: `${currentUser.chineseName} (${currentUser.displayName})`,
+      keywords: `ZupuVault, ${metadata.clanName}, ${metadata.keyFingerprint}, PDF/A-1b`,
+      creator: 'ZupuVault Sovereign Lineage Archive',
+    });
+  }
 
   pages.forEach((page, index) => {
     const isLandscape = page.orientation === 'landscape';
@@ -1209,5 +1223,5 @@ export async function exportZupuPdf(options: ExportPdfOptions): Promise<void> {
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '') || 'clan_zupu';
   const dateStr = new Date().toISOString().slice(0, 10);
-  pdf.save(`${slug}_zupu_${dateStr}.pdf`);
+  pdf.save(`${slug}_zupu_${usePdfA ? 'pdfa_' : ''}${dateStr}.pdf`);
 }

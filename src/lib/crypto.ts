@@ -183,6 +183,7 @@ export async function createEncryptedVaultBundle(
     ancestralOrigin: string;
     generationPoem: string[];
     branches?: BranchDefinition[];
+    version?: number;
   },
   members: DecryptedMember[]
 ): Promise<{ bundle: EncryptedVaultBundle; key: CryptoKey }> {
@@ -203,13 +204,30 @@ export async function createEncryptedVaultBundle(
     keyFingerprint: fingerprint,
     verifierBlob,
     updatedAt: new Date().toISOString(),
-    version: 1,
+    version: clanInfo.version ?? 1,
   };
 
   return {
     bundle: { metadata, records },
     key,
   };
+}
+
+export async function verifyVaultPassphrase(
+  passphrase: string,
+  metadata: Pick<ClanMetadata, 'keySaltB64' | 'kdfIterations' | 'verifierBlob'>
+): Promise<boolean> {
+  try {
+    const { key } = await deriveVaultKey(
+      passphrase,
+      metadata.keySaltB64,
+      metadata.kdfIterations
+    );
+    const check = await decryptStringAesGcm(key, metadata.verifierBlob);
+    return check === VERIFIER_PLAINTEXT;
+  } catch {
+    return false;
+  }
 }
 
 export async function unlockEncryptedVaultBundle(

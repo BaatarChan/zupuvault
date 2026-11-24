@@ -324,6 +324,18 @@ export interface TranslationDict {
     colEvent: string;
     colTarget: string;
     colDetail: string;
+    coCustodianBadge: string;
+    transferTitle: string;
+    transferDesc: string;
+    transferTargetLabel: string;
+    transferPasswordLabel: string;
+    transferTotpLabel: string;
+    transferConfirmPrompt: string;
+    transferBtn: string;
+    transferConfirmBtn: string;
+    transferringBtn: string;
+    transferSuccessPrefix: string;
+    noEligibleSuccessor: string;
   };
   mfa: {
     kicker: string;
@@ -346,6 +358,21 @@ export interface TranslationDict {
     rotateKeyTitle: string;
     rotateKeyDesc: string;
     reEncryptBtn: string;
+    currentPassphraseLabel: string;
+    newPassphraseLabel: string;
+    confirmNewPassphraseLabel: string;
+    currentPassphraseRequiredError: string;
+    currentPassphraseInvalidError: string;
+    passphraseUnchangedError: string;
+    passphraseMinLengthError: string;
+    passphraseMismatchError: string;
+    rotateConfirmPrompt: string;
+    rotateConfirmBtn: string;
+    rotateCustodianOnlyNote: string;
+    rotateBackupPromptTitle: string;
+    rotateBackupPromptDesc: string;
+    downloadUpdatedArchiveBtn: string;
+    archiveExportedNotice: string;
     changePwTitle: string;
     updatePwBtn: string;
     custodySheetTitle: string;
@@ -377,6 +404,30 @@ export interface TranslationDict {
     passkeyRenamedNotice: string;
     passkeyRemovedNotice: string;
     passkeyUnsupported: string;
+    showSecretAria: string;
+    hideSecretAria: string;
+    generateDicewareBtn: string;
+    strengthWeak: string;
+    strengthFair: string;
+    strengthGood: string;
+    strengthStrong: string;
+    autoLockTitle: string;
+    autoLockDesc: string;
+    autoLockLabel: string;
+    autoLockOff: string;
+    autoLockMinutesSuffix: string;
+    autoLockNotice: string;
+    sessionsTitle: string;
+    sessionsDesc: string;
+    sessionsCurrentBadge: string;
+    sessionsRevokeOthersBtn: string;
+    sessionsRevokingBtn: string;
+    sessionsRevokeOneBtn: string;
+    sessionsEmpty: string;
+    sessionsRevokedNotice: string;
+    signInAlertsTitle: string;
+    signInAlertsEmpty: string;
+    sessionLastSeen: string;
   };
   offline: {
     kicker: string;
@@ -411,6 +462,13 @@ export interface TranslationDict {
     mergeImportBtn: string;
     replaceImportBtn: string;
     importCommittedNotice: string;
+    serverHistoryTitle: string;
+    serverHistoryDesc: string;
+    serverHistoryEmpty: string;
+    rollbackBtn: string;
+    confirmRollbackBtn: string;
+    rollbackSuccess: string;
+    autoSnapshotHint: string;
   };
   forcePw: {
     kicker: string;
@@ -483,6 +541,8 @@ export interface TranslationDict {
     redactedAddress: string;
     confidentialFooter: string;
     pageLabel: string;
+    pdfACompliant: string;
+    pdfACompliantHint: string;
   };
   audit: {
     openBtn: string;
@@ -832,6 +892,18 @@ const EN_HK: TranslationDict = {
     colEvent: 'Action',
     colTarget: 'Target',
     colDetail: 'Detail',
+    coCustodianBadge: 'Co-Custodian',
+    transferTitle: 'Patriarch Succession · Transfer Custody',
+    transferDesc: 'Promote a verified active relative to Primary Patriarch. Your account transitions smoothly to an Archivist Co-Custodian retaining role-management access.',
+    transferTargetLabel: 'Designated Patriarch Successor',
+    transferPasswordLabel: 'Confirm Current Patriarch Password',
+    transferTotpLabel: '6-Digit TOTP Authenticator Code',
+    transferConfirmPrompt: 'Confirm transferring Primary Patriarch custody to this relative? This action is recorded in the clan audit log.',
+    transferBtn: 'Transfer Patriarch Custody',
+    transferConfirmBtn: 'Confirm Custody Transfer',
+    transferringBtn: 'Transferring Custody...',
+    transferSuccessPrefix: 'Transferred Patriarch custody to',
+    noEligibleSuccessor: 'Invite and verify at least one other active relative before transferring Patriarch custody.',
   },
   mfa: {
     kicker: '多重驗證與密鑰 · Cryptographic & Identity Hardening',
@@ -854,6 +926,21 @@ const EN_HK: TranslationDict = {
     rotateKeyTitle: 'Rotate Family AES-256 Passphrase',
     rotateKeyDesc: 'Re-encrypts all lineage records locally with a new 16-byte salt and 310,000-round PBKDF2 key.',
     reEncryptBtn: 'Re-Encrypt Lineage Vault',
+    currentPassphraseLabel: 'Current Family Encryption Passphrase',
+    newPassphraseLabel: 'New Family Encryption Passphrase (min. 8 characters)',
+    confirmNewPassphraseLabel: 'Confirm New Passphrase',
+    currentPassphraseRequiredError: 'Please enter your current Family Encryption Passphrase.',
+    currentPassphraseInvalidError: 'Current Family Encryption Passphrase is incorrect.',
+    passphraseUnchangedError: 'New passphrase must differ from the current passphrase.',
+    passphraseMinLengthError: 'New Family Encryption Passphrase must be at least 8 characters.',
+    passphraseMismatchError: 'New encryption passphrases do not match.',
+    rotateConfirmPrompt: 'Re-encrypt all lineage records with this new passphrase? Other relatives will need the new passphrase the next time they unlock the vault.',
+    rotateConfirmBtn: 'Confirm Re-Encrypt',
+    rotateCustodianOnlyNote: 'Only the Patriarch or an account granted Manage Member Roles permission can rotate the Family Encryption Passphrase.',
+    rotateBackupPromptTitle: 'Passphrase Rotated · Update Offline Backups',
+    rotateBackupPromptDesc: 'Earlier .zupu.json files remain encrypted with your previous passphrase. Download an updated backup archive and custody sheet now, and share the new passphrase out-of-band with relatives.',
+    downloadUpdatedArchiveBtn: 'Download .zupu.json Backup',
+    archiveExportedNotice: 'Downloaded updated .zupu.json encrypted backup.',
     changePwTitle: 'Change Account Login Password',
     updatePwBtn: 'Update Login Password',
     custodySheetTitle: 'Heir Custody & Passphrase Recovery Sheet',
@@ -885,6 +972,30 @@ const EN_HK: TranslationDict = {
     passkeyRenamedNotice: 'Updated Passkey label.',
     passkeyRemovedNotice: 'Removed Passkey from your account.',
     passkeyUnsupported: 'This browser or context does not support WebAuthn Passkeys.',
+    showSecretAria: 'Show passphrase',
+    hideSecretAria: 'Hide passphrase',
+    generateDicewareBtn: 'Generate 5-Word',
+    strengthWeak: 'Weak',
+    strengthFair: 'Fair',
+    strengthGood: 'Good',
+    strengthStrong: 'Strong',
+    autoLockTitle: 'Inactivity Auto-Lock & Active Devices',
+    autoLockDesc: 'Automatically wipes encryption keys from browser memory after inactivity, and lets you inspect or revoke signed-in sessions.',
+    autoLockLabel: 'Auto-Lock After Inactivity',
+    autoLockOff: 'Disabled (Manual Lock Only)',
+    autoLockMinutesSuffix: 'minutes',
+    autoLockNotice: 'Vault locked automatically due to inactivity.',
+    sessionsTitle: 'Active Signed-In Sessions',
+    sessionsDesc: 'Other browsers or devices holding an active session for your account.',
+    sessionsCurrentBadge: 'Current Device',
+    sessionsRevokeOthersBtn: 'Sign Out All Other Devices',
+    sessionsRevokingBtn: 'Signing Out...',
+    sessionsRevokeOneBtn: 'Revoke',
+    sessionsEmpty: 'No other active sessions found.',
+    sessionsRevokedNotice: 'Signed out all other active devices.',
+    signInAlertsTitle: 'Recent Sign-In Alerts',
+    signInAlertsEmpty: 'No recent sign-in activity recorded.',
+    sessionLastSeen: 'Last active',
   },
   offline: {
     kicker: '離線備份與主權 · Local IndexedDB & Cold Backup',
@@ -919,6 +1030,13 @@ const EN_HK: TranslationDict = {
     mergeImportBtn: 'Merge into Vault',
     replaceImportBtn: 'Replace All Records',
     importCommittedNotice: 'Encrypted & saved imported lineage records',
+    serverHistoryTitle: 'Server Vault Revision History (Last 5 Revisions)',
+    serverHistoryDesc: 'Automatically archived before every server sync, passphrase rotation, or rollback.',
+    serverHistoryEmpty: 'No prior server revisions archived yet.',
+    rollbackBtn: 'Rollback',
+    confirmRollbackBtn: 'Confirm Rollback',
+    rollbackSuccess: 'Rolled back server vault to revision',
+    autoSnapshotHint: 'Local pre-rotation and pre-import snapshots are saved automatically below.',
   },
   forcePw: {
     kicker: 'Custodian Password Reset Enforced',
@@ -991,6 +1109,8 @@ const EN_HK: TranslationDict = {
     redactedAddress: '[Protected Living PII Redacted]',
     confidentialFooter: 'Private Family Archive · Confidential Genealogical Record',
     pageLabel: 'Page',
+    pdfACompliant: 'Export as Archival PDF/A-1b (ISO 19005-1)',
+    pdfACompliantHint: 'Embeds an sRGB ICC OutputIntent and XMP archival metadata for long-term family preservation.',
   },
   audit: {
     openBtn: 'Duplicate & Link Audit',
@@ -1340,6 +1460,18 @@ const ZH_HK: TranslationDict = {
     colEvent: '執行動作',
     colTarget: '目標對象',
     colDetail: '詳細說明',
+    coCustodianBadge: '協管長老',
+    transferTitle: '族長承傳 · 移交掌譜權限',
+    transferDesc: '將宗族最高掌譜「族長」身份移交予一位已驗證的在冊宗親。您將平滑轉為具備「管理宗親權限」之協管典藏人。',
+    transferTargetLabel: '指定接任族長之宗親',
+    transferPasswordLabel: '確認現任族長登入密碼',
+    transferTotpLabel: '6 位數 TOTP 動態驗證碼',
+    transferConfirmPrompt: '確定要將宗族最高「族長」權限移交予此宗親嗎？此操作將永久登錄於家族稽核日誌。',
+    transferBtn: '移交族長權限',
+    transferConfirmBtn: '確認移交族長',
+    transferringBtn: '正在移交⋯⋯',
+    transferSuccessPrefix: '已將族長保管權限移交予',
+    noEligibleSuccessor: '請先邀請並驗證至少一位其他在冊宗親，方可進行族長移交。',
   },
   mfa: {
     kicker: '多重驗證與密鑰 · 加密與身份強化',
@@ -1362,6 +1494,21 @@ const ZH_HK: TranslationDict = {
     rotateKeyTitle: '輪替家族 AES-256 加密主密碼',
     rotateKeyDesc: '於本機重新以全新隨機鹽值及 310,000 次 PBKDF2 演算重新加密全部譜錄。',
     reEncryptBtn: '重新加密宗族保險庫',
+    currentPassphraseLabel: '目前家族加密主密碼',
+    newPassphraseLabel: '新家族加密主密碼（至少 8 個字元）',
+    confirmNewPassphraseLabel: '確認新加密主密碼',
+    currentPassphraseRequiredError: '請輸入目前的家族加密主密碼。',
+    currentPassphraseInvalidError: '目前的家族加密主密碼不正確。',
+    passphraseUnchangedError: '新加密主密碼不可與目前密碼相同。',
+    passphraseMinLengthError: '新家族加密主密碼須至少包含 8 個字元。',
+    passphraseMismatchError: '兩次輸入的新加密主密碼不相符。',
+    rotateConfirmPrompt: '確定要使用新主密碼重新加密全部譜錄嗎？其他宗親下次解鎖時須改用新主密碼。',
+    rotateConfirmBtn: '確認重新加密',
+    rotateCustodianOnlyNote: '僅族長或獲授「管理宗親權限」之帳戶可輪替家族加密主密碼。',
+    rotateBackupPromptTitle: '主密碼已輪替 · 請更新離線備份',
+    rotateBackupPromptDesc: '舊版 .zupu.json 備份仍使用舊主密碼加密。建議立即下載新版加密備份檔與繼承人交接憑證，並透過私密管道通知已驗證宗親。',
+    downloadUpdatedArchiveBtn: '下載 .zupu.json 備份',
+    archiveExportedNotice: '已下載最新加密 .zupu.json 備份檔。',
     changePwTitle: '變更帳戶登入密碼',
     updatePwBtn: '更新登入密碼',
     custodySheetTitle: '繼承人密鑰交接憑證（Heir Custody Sheet）',
@@ -1393,6 +1540,30 @@ const ZH_HK: TranslationDict = {
     passkeyRenamedNotice: '已更新通行密鑰名稱。',
     passkeyRemovedNotice: '已從帳戶移除該通行密鑰。',
     passkeyUnsupported: '目前瀏覽器或連線環境不支援 WebAuthn 通行密鑰。',
+    showSecretAria: '顯示密碼',
+    hideSecretAria: '隱藏密碼',
+    generateDicewareBtn: '產生 5 字詞密碼',
+    strengthWeak: '弱',
+    strengthFair: '尚可',
+    strengthGood: '良好',
+    strengthStrong: '極強',
+    autoLockTitle: '閒置自動鎖定與裝置連線管理',
+    autoLockDesc: '於指定閒置時間後自動清除瀏覽器記憶體中的解密金鑰，並可隨時檢視或登出其他裝置。',
+    autoLockLabel: '閒置自動鎖定時限',
+    autoLockOff: '停用（僅手動鎖定）',
+    autoLockMinutesSuffix: '分鐘',
+    autoLockNotice: '因閒置逾時，宗族秘藏已自動鎖定。',
+    sessionsTitle: '目前有效登入工作階段',
+    sessionsDesc: '持有閣下帳戶有效連線憑證之瀏覽器或裝置。',
+    sessionsCurrentBadge: '目前裝置',
+    sessionsRevokeOthersBtn: '登出全部其他裝置',
+    sessionsRevokingBtn: '正在登出⋯⋯',
+    sessionsRevokeOneBtn: '撤銷連線',
+    sessionsEmpty: '暫無其他有效登入裝置。',
+    sessionsRevokedNotice: '已強制登出所有其他裝置連線。',
+    signInAlertsTitle: '近期登入安全紀錄',
+    signInAlertsEmpty: '暫無近期登入活動紀錄。',
+    sessionLastSeen: '最後活動',
   },
   offline: {
     kicker: '離線備份與主權 · 本機 IndexedDB 及冷備份',
@@ -1427,6 +1598,13 @@ const ZH_HK: TranslationDict = {
     mergeImportBtn: '合併匯入保險庫',
     replaceImportBtn: '覆蓋全部譜錄',
     importCommittedNotice: '已將匯入譜錄完成 AES-256-GCM 加密並儲存',
+    serverHistoryTitle: '伺服器歷史版本紀錄（最近 5 次修訂）',
+    serverHistoryDesc: '每次推送同步、輪替主密碼或回溯前均會自動封存上一版本。',
+    serverHistoryEmpty: '伺服器暫未存有先前修訂版本。',
+    rollbackBtn: '回溯此版本',
+    confirmRollbackBtn: '確認回溯',
+    rollbackSuccess: '已將伺服器譜庫回溯至修訂版本',
+    autoSnapshotHint: '於輪替主密碼或批次匯入前，系統會自動於下方建立本機保護快照。',
   },
   forcePw: {
     kicker: '掌譜人已重設密碼 · 強制安全更新',
@@ -1499,6 +1677,8 @@ const ZH_HK: TranslationDict = {
     redactedAddress: '【在世私隱地址已依權限遮蔽】',
     confidentialFooter: '宗族私密譜牒 · 僅限授權宗親查閱',
     pageLabel: '頁次',
+    pdfACompliant: '以典藏級 PDF/A-1b（ISO 19005-1）格式匯出',
+    pdfACompliantHint: '內嵌 sRGB ICC 色彩設定檔及 XMP 典藏中繼資料，確保跨世代長期存檔相容。',
   },
   audit: {
     openBtn: '重複與關聯檢查',
@@ -1848,6 +2028,18 @@ const ZH_CN: TranslationDict = {
     colEvent: '执行动作',
     colTarget: '目标对象',
     colDetail: '详细说明',
+    coCustodianBadge: '协管长老',
+    transferTitle: '族长传承 · 移交掌谱权限',
+    transferDesc: '将宗族最高掌谱「族长」身份移交给一位已验证的在册宗亲。您将平滑转为具备「管理宗亲权限」的协管典藏人。',
+    transferTargetLabel: '指定接任族长之宗亲',
+    transferPasswordLabel: '确认现任族长登录密码',
+    transferTotpLabel: '6 位 TOTP 动态验证码',
+    transferConfirmPrompt: '确定要将宗族最高「族长」权限移交给此宗亲吗？此操作将永久记录于家族审计日志。',
+    transferBtn: '移交族长权限',
+    transferConfirmBtn: '确认移交族长',
+    transferringBtn: '正在移交……',
+    transferSuccessPrefix: '已将族长保管权限移交予',
+    noEligibleSuccessor: '请先邀请并验证至少一位其他在册宗亲，方可进行族长移交。',
   },
   mfa: {
     kicker: '双重验证与密钥 · 加密与身份加固',
@@ -1870,6 +2062,21 @@ const ZH_CN: TranslationDict = {
     rotateKeyTitle: '轮换家族 AES-256 加密主密码',
     rotateKeyDesc: '在本地重新使用全新随机盐值及 310,000 次 PBKDF2 算法重新加密全部谱录。',
     reEncryptBtn: '重新加密宗族保险库',
+    currentPassphraseLabel: '当前家族加密主密码',
+    newPassphraseLabel: '新家族加密主密码（至少 8 个字符）',
+    confirmNewPassphraseLabel: '确认新加密主密码',
+    currentPassphraseRequiredError: '请输入当前的家族加密主密码。',
+    currentPassphraseInvalidError: '当前的家族加密主密码不正确。',
+    passphraseUnchangedError: '新加密主密码不能与当前密码相同。',
+    passphraseMinLengthError: '新家族加密主密码需至少包含 8 个字符。',
+    passphraseMismatchError: '两次输入的新加密主密码不一致。',
+    rotateConfirmPrompt: '确定要使用新主密码重新加密全部谱录吗？其他宗亲下次解锁时需改用新主密码。',
+    rotateConfirmBtn: '确认重新加密',
+    rotateCustodianOnlyNote: '仅族长或获授「管理宗亲权限」的账户可轮换家族加密主密码。',
+    rotateBackupPromptTitle: '主密码已轮换 · 请更新离线备份',
+    rotateBackupPromptDesc: '旧版 .zupu.json 备份仍使用旧主密码加密。建议立即下载新版加密备份文件与继承人交接凭证，并通过私密渠道通知已验证宗亲。',
+    downloadUpdatedArchiveBtn: '下载 .zupu.json 备份',
+    archiveExportedNotice: '已下载最新加密 .zupu.json 备份文件。',
     changePwTitle: '更改账户登录密码',
     updatePwBtn: '更新登录密码',
     custodySheetTitle: '继承人密钥交接凭证（Heir Custody Sheet）',
@@ -1901,6 +2108,30 @@ const ZH_CN: TranslationDict = {
     passkeyRenamedNotice: '已更新通行密钥名称。',
     passkeyRemovedNotice: '已从账户移除该通行密钥。',
     passkeyUnsupported: '当前浏览器或环境不支持 WebAuthn 通行密钥。',
+    showSecretAria: '显示密码',
+    hideSecretAria: '隐藏密码',
+    generateDicewareBtn: '生成 5 词密码',
+    strengthWeak: '弱',
+    strengthFair: '尚可',
+    strengthGood: '良好',
+    strengthStrong: '极强',
+    autoLockTitle: '闲置自动锁定与设备会话管理',
+    autoLockDesc: '在指定闲置时间后自动清除浏览器内存中的解密密钥，并可随时查看或注销其他设备会话。',
+    autoLockLabel: '闲置自动锁定时限',
+    autoLockOff: '停用（仅手动锁定）',
+    autoLockMinutesSuffix: '分钟',
+    autoLockNotice: '因闲置超时，宗族秘藏已自动锁定。',
+    sessionsTitle: '当前有效登录会话',
+    sessionsDesc: '持有您账户有效会话凭证的浏览器或设备。',
+    sessionsCurrentBadge: '当前设备',
+    sessionsRevokeOthersBtn: '注销全部其他设备',
+    sessionsRevokingBtn: '正在注销……',
+    sessionsRevokeOneBtn: '撤销会话',
+    sessionsEmpty: '暂无其他有效登录设备。',
+    sessionsRevokedNotice: '已强制注销所有其他设备会话。',
+    signInAlertsTitle: '近期登录安全记录',
+    signInAlertsEmpty: '暂无近期登录活动记录。',
+    sessionLastSeen: '最后活动',
   },
   offline: {
     kicker: '离线备份与主权 · 本地 IndexedDB 及冷备份',
@@ -1935,6 +2166,13 @@ const ZH_CN: TranslationDict = {
     mergeImportBtn: '合并导入保险库',
     replaceImportBtn: '覆盖全部谱录',
     importCommittedNotice: '已将导入谱录完成 AES-256-GCM 加密并保存',
+    serverHistoryTitle: '服务器历史版本记录（最近 5 次修订）',
+    serverHistoryDesc: '每次推送同步、轮换主密码或回滚前均会自动封存上一版本。',
+    serverHistoryEmpty: '服务器暂未存有先前修订版本。',
+    rollbackBtn: '回滚此版本',
+    confirmRollbackBtn: '确认回滚',
+    rollbackSuccess: '已将服务器谱库回滚至修订版本',
+    autoSnapshotHint: '在轮换主密码或批量导入前，系统会自动在下方创建本地保护快照。',
   },
   forcePw: {
     kicker: '掌谱人已重置密码 · 强制安全更新',
@@ -2007,6 +2245,8 @@ const ZH_CN: TranslationDict = {
     redactedAddress: '【在世隐私地址已依权限遮蔽】',
     confidentialFooter: '宗族私密谱牒 · 仅限授权宗亲查阅',
     pageLabel: '页次',
+    pdfACompliant: '以典藏级 PDF/A-1b（ISO 19005-1）格式导出',
+    pdfACompliantHint: '内嵌 sRGB ICC 色彩配置文件与 XMP 归档元数据，确保跨世代长期保存兼容。',
   },
   audit: {
     openBtn: '重复与关联检查',

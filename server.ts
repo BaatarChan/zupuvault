@@ -33,16 +33,20 @@ import {
   sanitizeUser,
   writeStore,
   type PersistentStoreSchema,
+  type StoredActiveSession,
   type StoredInvite,
   type StoredPasskey,
   type StoredUser,
 } from './server/store.ts';
 import type {
+  ActiveSessionSummary,
   AuditEntry,
   BranchScope,
   ClanRole,
   EncryptedVaultBundle,
   GranularPermissions,
+  RecentSignInAlert,
+  VaultRevisionSummary,
 } from './src/types/zupu.ts';
 
 function parseCliArg(flag: string): string | undefined {
@@ -238,6 +242,96 @@ function isValidVaultBundle(raw: unknown): raw is EncryptedVaultBundle {
     if (typeof r.encryptedPayload.ciphertextB64 !== 'string') return false;
   }
   return true;
+}
+
+function describeUserAgent(req: Request): string {
+  const ua = String(req.headers['user-agent'] || '');
+  let os = 'Unknown Device';
+  if (/iPhone/i.test(ua)) os = 'iPhone';
+  else if (/iPad/i.test(ua)) os = 'iPad';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/Macintosh|Mac OS X/i.test(ua)) os = 'macOS';
+  else if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Linux/i.test(ua)) os = 'Linux';
+
+  let browser = 'Browser';
+  if (/Edg\//i.test(ua)) browser = 'Edge';
+  else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = 'Safari';
+  else if (/curl/i.test(ua)) browser = 'CLI';
+
+  return `${os} · ${browser}`;
+}
+
+function getClientIpLabel(req: Request): string {
+  const raw = req.ip || req.socket.remoteAddress || 'Unknown';
+  return raw.replace(/^::ffff:/, '').slice(0, 48);
+}
+
+function recordActiveSession(
+  store: PersistentStoreSchema,
+  user: StoredUser,
+  sid: string,
+  exp: number,
+  req: Request,
+  authMethod: StoredActiveSession['authMethod']
+): void {
+  const now = new Date().toISOString();
+  const list = (store.activeSessions ?? []).filter((s) => s.sid !== sid);
+  list.push({
+    sid,
+    userId: user.id,
+    sessionVersion: user.sessionVersion ?? 1,
+    authMethod,
+    deviceLabel: describeUserAgent(req),
+    ip: getClientIpLabel(req),
+    createdAt: now,
+    lastSeenAt: now,
+    exp,
+  });
+  // Keep latest 25 sessions per user
+  const userSessions = list.filter((s) => s.userId === user.id).slice(-25);
+  const otherSessions = list.filter((s) => s.userId !== user.id);
+  store.activeSessions = [...otherSessions, ...userSessions];
+}
+
+function removeActiveSessionById(store: PersistentStoreSchema, sid?: string): void {
+  if (!sid || !Array.isArray(store.activeSessions)) return;
+  store.activeSessions = store.activeSessions.filter((s) => s.sid !== sid);
+}
+
+function listUserSessions(
+  store: PersistentStoreSchema,
+  user: StoredUser,
+  currentSid?: string
+): ActiveSessionSummary[] {
+  const now = Date.now();
+  const sv = user.sessionVersion ?? 1;
+  const revokedSet = new Set(store.revokedSessions.map((r) => r.sid));
+  return (store.activeSessions ?? [])
+    .filter(
+      (s) =>
+        s.userId === user.id &&
+        s.sessionVersion === sv &&
+        s.exp > now &&
+        !revokedSet.has(s.sid)
+    )
+    .map((s) => ({
+      sid: s.sid,
+      sidPrefix: s.sid.slice(0, 8).toUpperCase(),
+      authMethod: s.authMethod,
+      deviceLabel: s.deviceLabel,
+      ip: s.ip,
+      createdAt: s.createdAt,
+      lastSeenAt: s.lastSeenAt,
+      expiresAt: new Date(s.exp).toISOString(),
+      isCurrent: Boolean(currentSid && s.sid === currentSid),
+    }))
+    .sort((a, b) => {
+      if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+      return b.lastSeenAt.localeCompare(a.lastSeenAt);
+    });
 }
 
 function createSessionForUser(
@@ -497,6 +591,8 @@ async function startServer() {
 
     store.custodyClaimed = true;
     store.users = [patriarch];
+    const { token, sid, exp } = createSessionForUser(patriarch, true);
+    recordActiveSession(store, patriarch, sid, exp, req, 'claim');
     appendAudit(
       store,
       patriarch,
@@ -506,7 +602,6 @@ async function startServer() {
     );
     writeStore(store);
 
-    const { token } = createSessionForUser(patriarch, true);
     res.status(201).json({
       token,
       mfaRequired: false,
@@ -547,16 +642,19 @@ async function startServer() {
     }
 
     user.lastActiveAt = new Date().toISOString();
+    const { token, sid, exp } = createSessionForUser(user, !user.mfaEnabled);
+    recordActiveSession(store, user, sid, exp, req, 'password');
     appendAudit(
       store,
       user,
       'MEMBER_SIGN_IN',
       user.email,
-      user.mfaEnabled ? 'Password verified; awaiting TOTP MFA challenge' : 'Authenticated into family node'
+      user.mfaEnabled
+        ? `Password verified (${describeUserAgent(req)}); awaiting TOTP MFA challenge`
+        : `Signed in via password (${describeUserAgent(req)})`
     );
     writeStore(store);
 
-    const { token } = createSessionForUser(user, !user.mfaEnabled);
     res.json({
       token,
       mfaRequired: user.mfaEnabled,
@@ -627,6 +725,8 @@ async function startServer() {
 
     invite.usedAt = now;
     store.users.push(newUser);
+    const { token, sid, exp } = createSessionForUser(newUser, true);
+    recordActiveSession(store, newUser, sid, exp, req, 'invite');
     appendAudit(
       store,
       newUser,
@@ -636,7 +736,6 @@ async function startServer() {
     );
     writeStore(store);
 
-    const { token } = createSessionForUser(newUser, true);
     res.status(201).json({
       token,
       mfaRequired: false,
@@ -665,6 +764,7 @@ async function startServer() {
           sid: req.authSessionId,
           exp: req.authSessionExp,
         });
+        removeActiveSessionById(store, req.authSessionId);
         writeStore(store);
       }
       res.json({ ok: true });
@@ -718,8 +818,10 @@ async function startServer() {
 
     if (req.authSessionId && req.authSessionExp) {
       store.revokedSessions.push({ sid: req.authSessionId, exp: req.authSessionExp });
+      removeActiveSessionById(store, req.authSessionId);
     }
-    const { token } = createSessionForUser(user, true);
+    const { token, sid, exp } = createSessionForUser(user, true);
+    recordActiveSession(store, user, sid, exp, req, 'mfa');
 
     appendAudit(
       store,
@@ -773,9 +875,17 @@ async function startServer() {
 
       if (req.authSessionId && req.authSessionExp) {
         store.revokedSessions.push({ sid: req.authSessionId, exp: req.authSessionExp });
+        removeActiveSessionById(store, req.authSessionId);
       }
-      const { token } = createSessionForUser(user, true);
-      appendAudit(store, user, 'MFA_VERIFIED', user.email, 'Completed TOTP MFA challenge');
+      const { token, sid, exp } = createSessionForUser(user, true);
+      recordActiveSession(store, user, sid, exp, req, 'mfa');
+      appendAudit(
+        store,
+        user,
+        'MFA_VERIFIED',
+        user.email,
+        `Completed TOTP MFA challenge (${describeUserAgent(req)})`
+      );
       writeStore(store);
 
       res.json({
@@ -1166,16 +1276,17 @@ async function startServer() {
     matchedUser.lastActiveAt = now;
 
     const mfaSatisfied = !matchedUser.mfaEnabled || Boolean(verification.authenticationInfo.userVerified);
+    const { token, sid, exp } = createSessionForUser(matchedUser, mfaSatisfied);
+    recordActiveSession(store, matchedUser, sid, exp, req, 'passkey');
     appendAudit(
       store,
       matchedUser,
       'PASSKEY_SIGN_IN',
       matchedUser.email,
-      `Signed in with passkey "${matchedPasskey.label}"${mfaSatisfied ? '' : ' (awaiting TOTP MFA)'}`
+      `Signed in with passkey "${matchedPasskey.label}" (${describeUserAgent(req)})${mfaSatisfied ? '' : ' (awaiting TOTP MFA)'}`
     );
     writeStore(store);
 
-    const { token } = createSessionForUser(matchedUser, mfaSatisfied);
     res.json({
       token,
       mfaRequired: !mfaSatisfied,
@@ -1217,10 +1328,11 @@ async function startServer() {
       user.passwordHashHex = hashHex;
       user.mustChangePassword = false;
       user.sessionVersion = (user.sessionVersion ?? 1) + 1;
+      const { token, sid, exp } = createSessionForUser(user, Boolean(req.authMfaVerified));
+      recordActiveSession(store, user, sid, exp, req, 'password');
       appendAudit(store, user, 'PASSWORD_ROTATED', user.email, 'Updated account login password');
       writeStore(store);
 
-      const { token } = createSessionForUser(user, Boolean(req.authMfaVerified));
       res.json({ ok: true, token, user: sanitizeUser(user) });
     }
   );
@@ -1277,6 +1389,25 @@ async function startServer() {
     const store = readStore();
     const currentRevision = store.vaultRevision ?? (store.vaultBundle ? 1 : 0);
 
+    if (store.vaultBundle) {
+      const prevMeta = store.vaultBundle.metadata;
+      const nextMeta = bundle.metadata;
+      const keyEnvelopeChanged =
+        prevMeta.keySaltB64 !== nextMeta.keySaltB64 ||
+        prevMeta.kdfIterations !== nextMeta.kdfIterations ||
+        prevMeta.keyFingerprint !== nextMeta.keyFingerprint ||
+        prevMeta.verifierBlob.ivB64 !== nextMeta.verifierBlob.ivB64 ||
+        prevMeta.verifierBlob.ciphertextB64 !== nextMeta.verifierBlob.ciphertextB64;
+
+      if (keyEnvelopeChanged && user.role !== 'patriarch' && !user.permissions.canManageRoles) {
+        res.status(403).json({
+          error:
+            'Only the Patriarch or an authorized Role Custodian can rotate the Family Vault Encryption Passphrase.',
+        });
+        return;
+      }
+    }
+
     if (
       store.vaultBundle &&
       typeof expectedRevision === 'number' &&
@@ -1291,6 +1422,24 @@ async function startServer() {
         expectedRevision,
       });
       return;
+    }
+
+    const summary = isValidText(auditSummary, 1, 180)
+      ? auditSummary.trim()
+      : `Synchronized ${bundle.records.length} AES-256-GCM encrypted lineage envelopes`;
+
+    if (store.vaultBundle) {
+      const history = Array.isArray(store.vaultHistory) ? [...store.vaultHistory] : [];
+      history.push({
+        revision: currentRevision,
+        savedAt: new Date().toISOString(),
+        savedByName: user.displayName,
+        summary,
+        keyFingerprint: store.vaultBundle.metadata.keyFingerprint,
+        recordCount: store.vaultBundle.records.length,
+        bundle: store.vaultBundle,
+      });
+      store.vaultHistory = history.slice(-5);
     }
 
     if (user.permissions.branchScope !== 'all' && store.vaultBundle) {
@@ -1320,9 +1469,6 @@ async function startServer() {
 
     store.vaultRevision = currentRevision + 1;
 
-    const summary = isValidText(auditSummary, 1, 180)
-      ? auditSummary.trim()
-      : `Synchronized ${bundle.records.length} AES-256-GCM encrypted lineage envelopes`;
     appendAudit(store, user, 'VAULT_SYNCED', bundle.metadata.clanName, summary);
     writeStore(store);
 
@@ -1714,6 +1860,249 @@ async function startServer() {
     }
     const store = readStore();
     res.json({ logs: store.auditLogs });
+  });
+
+  // --- Active Session Management & Sign-In Alerts ---
+  app.get('/api/auth/sessions', requireAuth(), (req: AuthenticatedRequest, res) => {
+    const store = readStore();
+    const user = store.users.find((u) => u.id === req.authUser!.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const currentEntry = (store.activeSessions ?? []).find((s) => s.sid === req.authSessionId);
+    if (currentEntry) {
+      currentEntry.lastSeenAt = new Date().toISOString();
+      writeStore(store);
+    }
+    const sessions = listUserSessions(store, user, req.authSessionId);
+    const signInActions = new Set([
+      'MEMBER_SIGN_IN',
+      'PASSKEY_SIGN_IN',
+      'MFA_VERIFIED',
+      'REVOKE_OTHER_SESSIONS',
+      'PASSWORD_ROTATED',
+    ]);
+    const signInAlerts: RecentSignInAlert[] = store.auditLogs
+      .filter((entry) => entry.actorId === user.id && signInActions.has(entry.action))
+      .slice(0, 8)
+      .map((entry) => ({
+        id: entry.id,
+        timestamp: entry.timestamp,
+        action: entry.action,
+        detail: entry.detail,
+      }));
+    res.json({ sessions, signInAlerts });
+  });
+
+  app.post('/api/auth/sessions/revoke-others', requireAuth(), (req: AuthenticatedRequest, res) => {
+    const store = readStore();
+    const user = store.users.find((u) => u.id === req.authUser!.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const priorOtherCount = listUserSessions(store, user, req.authSessionId).filter(
+      (s) => !s.isCurrent
+    ).length;
+
+    user.sessionVersion = (user.sessionVersion ?? 1) + 1;
+    store.activeSessions = (store.activeSessions ?? []).filter((s) => s.userId !== user.id);
+
+    const { token, sid, exp } = createSessionForUser(user, Boolean(req.authMfaVerified));
+    recordActiveSession(store, user, sid, exp, req, 'password');
+
+    appendAudit(
+      store,
+      user,
+      'REVOKE_OTHER_SESSIONS',
+      user.email,
+      `Signed out all other active devices (${priorOtherCount} other session${priorOtherCount === 1 ? '' : 's'} invalidated)`
+    );
+    writeStore(store);
+
+    res.json({
+      ok: true,
+      token,
+      user: sanitizeUser(user),
+      sessions: listUserSessions(store, user, sid),
+      revokedCount: priorOtherCount,
+    });
+  });
+
+  app.delete('/api/auth/sessions/:sid', requireAuth(), (req: AuthenticatedRequest, res) => {
+    const sid = String(req.params.sid || '');
+    if (!sid || sid === req.authSessionId) {
+      res.status(400).json({ error: 'Cannot revoke the active session from this list; use Sign Out instead.' });
+      return;
+    }
+    const store = readStore();
+    const user = store.users.find((u) => u.id === req.authUser!.id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const target = (store.activeSessions ?? []).find(
+      (s) => s.sid === sid && s.userId === user.id
+    );
+    if (!target) {
+      res.status(404).json({ error: 'Active session not found' });
+      return;
+    }
+    store.revokedSessions.push({ sid: target.sid, exp: target.exp });
+    removeActiveSessionById(store, target.sid);
+    appendAudit(
+      store,
+      user,
+      'REVOKE_SESSION',
+      user.email,
+      `Revoked device session ${target.deviceLabel} (${target.sid.slice(0, 8).toUpperCase()})`
+    );
+    writeStore(store);
+    res.json({
+      ok: true,
+      sessions: listUserSessions(store, user, req.authSessionId),
+    });
+  });
+
+  // --- Server Vault Revision History & Rollback ---
+  app.get('/api/vault/history', requireAuth(), (req: AuthenticatedRequest, res) => {
+    const actor = req.authUser!;
+    if (actor.role !== 'patriarch' && !actor.permissions.canManageRoles) {
+      res.status(403).json({
+        error: 'Vault revision history is restricted to the Patriarch and Role Custodians',
+      });
+      return;
+    }
+    const store = readStore();
+    const history: VaultRevisionSummary[] = [...(store.vaultHistory ?? [])]
+      .reverse()
+      .map((entry) => ({
+        revision: entry.revision,
+        savedAt: entry.savedAt,
+        savedByName: entry.savedByName,
+        summary: entry.summary,
+        keyFingerprint: entry.keyFingerprint,
+        recordCount: entry.recordCount,
+      }));
+    res.json({ history });
+  });
+
+  app.post(
+    '/api/vault/history/:revision/restore',
+    requireAuth(),
+    (req: AuthenticatedRequest, res) => {
+      const actor = req.authUser!;
+      if (actor.role !== 'patriarch' && !actor.permissions.canManageRoles) {
+        res.status(403).json({
+          error: 'Only the Patriarch or an authorized Role Custodian can roll back server revisions',
+        });
+        return;
+      }
+      const revNum = Number(req.params.revision);
+      if (!Number.isInteger(revNum) || revNum < 0) {
+        res.status(400).json({ error: 'Invalid vault revision number' });
+        return;
+      }
+
+      const store = readStore();
+      const targetEntry = (store.vaultHistory ?? []).find((h) => h.revision === revNum);
+      if (!targetEntry) {
+        res.status(404).json({ error: `Vault revision #${revNum} is no longer retained` });
+        return;
+      }
+
+      const currentRevision = store.vaultRevision ?? (store.vaultBundle ? 1 : 0);
+      if (store.vaultBundle) {
+        const nextHistory = [...(store.vaultHistory ?? [])];
+        nextHistory.push({
+          revision: currentRevision,
+          savedAt: new Date().toISOString(),
+          savedByName: actor.displayName,
+          summary: `Snapshot before rollback to rev #${revNum}`,
+          keyFingerprint: store.vaultBundle.metadata.keyFingerprint,
+          recordCount: store.vaultBundle.records.length,
+          bundle: store.vaultBundle,
+        });
+        store.vaultHistory = nextHistory.slice(-5);
+      }
+
+      store.vaultBundle = targetEntry.bundle;
+      store.vaultRevision = currentRevision + 1;
+      appendAudit(
+        store,
+        actor,
+        'RESTORE_VAULT_REVISION',
+        targetEntry.bundle.metadata.clanName,
+        `Rolled back server vault to revision #${revNum} (${targetEntry.keyFingerprint})`
+      );
+      writeStore(store);
+
+      res.json({
+        ok: true,
+        bundle: store.vaultBundle,
+        serverRevision: store.vaultRevision,
+      });
+    }
+  );
+
+  // --- Patriarch Succession / Custody Transfer ---
+  app.post('/api/custody/transfer', requireAuth(), (req: AuthenticatedRequest, res) => {
+    const store = readStore();
+    const actor = store.users.find((u) => u.id === req.authUser!.id);
+    if (!actor || actor.role !== 'patriarch') {
+      res.status(403).json({ error: 'Only the current Patriarch can transfer Patriarch custody' });
+      return;
+    }
+
+    const { targetUserId, currentPassword, totpCode } = req.body ?? {};
+    if (typeof targetUserId !== 'string' || typeof currentPassword !== 'string') {
+      res.status(400).json({ error: 'Target relative and current Patriarch password are required' });
+      return;
+    }
+
+    if (!verifyPassword(currentPassword, actor.passwordSaltHex, actor.passwordHashHex)) {
+      res.status(401).json({ error: 'Current Patriarch password is incorrect' });
+      return;
+    }
+
+    if (actor.mfaEnabled) {
+      const secret = actor.mfaSecretSealed ? unsealServerSecret(actor.mfaSecretSealed) : null;
+      if (!secret || typeof totpCode !== 'string' || !verifyTotpCode(secret, totpCode)) {
+        res.status(401).json({ error: 'Valid 6-digit TOTP authenticator code is required' });
+        return;
+      }
+    }
+
+    const target = store.users.find((u) => u.id === targetUserId);
+    if (!target || target.id === actor.id || target.status !== 'active') {
+      res.status(400).json({ error: 'Successor must be an active, verified relative account' });
+      return;
+    }
+
+    target.role = 'patriarch';
+    target.permissions = defaultPermissionsForRole('patriarch');
+
+    actor.role = 'archivist';
+    actor.permissions = {
+      ...defaultPermissionsForRole('archivist'),
+      canManageRoles: true,
+    };
+
+    appendAudit(
+      store,
+      actor,
+      'TRANSFER_PATRIARCH_CUSTODY',
+      target.email,
+      `Transferred Patriarch custody to ${target.displayName} (${target.chineseName}); prior Patriarch retained Co-Custodian role`
+    );
+    writeStore(store);
+
+    res.json({
+      ok: true,
+      currentUser: sanitizeUser(actor),
+      targetUser: sanitizeUser(target),
+    });
   });
 
   const httpServer = http.createServer(app);

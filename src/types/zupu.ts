@@ -161,3 +161,32 @@ export interface OfflineSnapshot {
   sha256Checksum: string;
   bundle: EncryptedVaultBundle;
 }
+
+export interface ActiveSessionSummary {
+  sid: string;
+  sidPrefix: string;
+  authMethod: 'password' | 'mfa' | 'passkey' | 'invite' | 'claim';
+  deviceLabel: string;
+  ip: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+
+export interface RecentSignInAlert {
+  id: string;
+  timestamp: string;
+  action: string;
+  detail: string;
+}
+
+export interface VaultRevisionSummary {
+  revision: number;
+  savedAt: string;
+  savedByName: string;
+  summary: string;
+  keyFingerprint: string;
+  recordCount: number;
+}
+

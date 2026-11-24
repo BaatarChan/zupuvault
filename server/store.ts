@@ -52,14 +52,38 @@ export interface RevokedSessionEntry {
   exp: number;
 }
 
+export interface StoredActiveSession {
+  sid: string;
+  userId: string;
+  sessionVersion: number;
+  authMethod: 'password' | 'mfa' | 'passkey' | 'invite' | 'claim';
+  deviceLabel: string;
+  ip: string;
+  createdAt: string;
+  lastSeenAt: string;
+  exp: number;
+}
+
+export interface VaultRevisionHistoryEntry {
+  revision: number;
+  savedAt: string;
+  savedByName: string;
+  summary: string;
+  keyFingerprint: string;
+  recordCount: number;
+  bundle: EncryptedVaultBundle;
+}
+
 export interface PersistentStoreSchema {
   custodyClaimed: boolean;
   users: StoredUser[];
   invites: StoredInvite[];
   vaultBundle: EncryptedVaultBundle | null;
   vaultRevision?: number;
+  vaultHistory?: VaultRevisionHistoryEntry[];
   auditLogs: AuditEntry[];
   revokedSessions: RevokedSessionEntry[];
+  activeSessions?: StoredActiveSession[];
 }
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
@@ -76,8 +100,10 @@ const DEFAULT_STORE: PersistentStoreSchema = {
   invites: [],
   vaultBundle: null,
   vaultRevision: 0,
+  vaultHistory: [],
   auditLogs: [],
   revokedSessions: [],
+  activeSessions: [],
 };
 
 export function readStore(): PersistentStoreSchema {
@@ -89,6 +115,8 @@ export function readStore(): PersistentStoreSchema {
     const parsed = JSON.parse(raw) as Partial<PersistentStoreSchema>;
     const now = Date.now();
     const rawRevoked = Array.isArray(parsed.revokedSessions) ? parsed.revokedSessions : [];
+    const rawActiveSessions = Array.isArray(parsed.activeSessions) ? parsed.activeSessions : [];
+    const rawHistory = Array.isArray(parsed.vaultHistory) ? parsed.vaultHistory : [];
     const vaultBundle = parsed.vaultBundle ?? null;
     const inferredRevision =
       typeof parsed.vaultRevision === 'number' && Number.isInteger(parsed.vaultRevision)
@@ -102,9 +130,13 @@ export function readStore(): PersistentStoreSchema {
       invites: Array.isArray(parsed.invites) ? parsed.invites : [],
       vaultBundle,
       vaultRevision: inferredRevision,
+      vaultHistory: rawHistory.slice(-5),
       auditLogs: Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [],
       revokedSessions: rawRevoked.filter(
         (r) => r && typeof r.sid === 'string' && typeof r.exp === 'number' && r.exp > now
+      ),
+      activeSessions: rawActiveSessions.filter(
+        (s) => s && typeof s.sid === 'string' && typeof s.exp === 'number' && s.exp > now
       ),
     };
   } catch {
@@ -117,11 +149,27 @@ export function writeStore(nextStore: PersistentStoreSchema): void {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   const now = Date.now();
+  const revokedIds = new Set(
+    (nextStore.revokedSessions ?? [])
+      .filter((r) => r && typeof r.sid === 'string' && typeof r.exp === 'number' && r.exp > now)
+      .map((r) => r.sid)
+  );
   const pruned: PersistentStoreSchema = {
     ...nextStore,
+    vaultHistory: (nextStore.vaultHistory ?? []).slice(-5),
     revokedSessions: (nextStore.revokedSessions ?? [])
       .filter((r) => r && typeof r.sid === 'string' && typeof r.exp === 'number' && r.exp > now)
       .slice(-500),
+    activeSessions: (nextStore.activeSessions ?? [])
+      .filter(
+        (s) =>
+          s &&
+          typeof s.sid === 'string' &&
+          typeof s.exp === 'number' &&
+          s.exp > now &&
+          !revokedIds.has(s.sid)
+      )
+      .slice(-200),
   };
   const tmpPath = path.resolve(DATA_DIR, `zupu-vault-store.${process.pid}.tmp`);
   if (!tmpPath.startsWith(DATA_DIR + path.sep)) {

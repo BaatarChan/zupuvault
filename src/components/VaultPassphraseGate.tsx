@@ -14,11 +14,13 @@ import type {
   UserProfile,
 } from '../types/zupu';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { SecretInput } from './SecretInput';
 
 interface VaultPassphraseGateProps {
   user: UserProfile;
   storageMode: StorageMode;
   existingBundle: EncryptedVaultBundle | null;
+  infoNotice?: string | null;
   onUnlocked: (
     bundle: EncryptedVaultBundle,
     key: CryptoKey,
@@ -32,6 +34,7 @@ export const VaultPassphraseGate: React.FC<VaultPassphraseGateProps> = ({
   user,
   storageMode,
   existingBundle,
+  infoNotice,
   onUnlocked,
   onSignOut,
 }) => {
@@ -168,6 +171,12 @@ export const VaultPassphraseGate: React.FC<VaultPassphraseGateProps> = ({
             </div>
           </div>
 
+          {infoNotice && (
+            <div className="mt-5 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 text-xs text-amber-950">
+              {infoNotice}
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"
@@ -198,14 +207,13 @@ export const VaultPassphraseGate: React.FC<VaultPassphraseGateProps> = ({
                 <label className="block text-xs font-medium text-stone-700 mb-1.5">
                   {t.gate.passphraseLabel}
                 </label>
-                <input
-                  type="password"
+                <SecretInput
                   required
-                  autoFocus
                   value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
+                  onChange={setPassphrase}
+                  autoComplete="current-password"
                   placeholder={t.gate.passphrasePlaceholder}
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                  className="px-3.5 py-2.5 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                 />
                 <p className="text-xs text-stone-500 mt-1.5">
                   {t.gate.kdfNote} ({activeBundle.metadata.kdfIterations.toLocaleString()}).
@@ -317,26 +325,31 @@ export const VaultPassphraseGate: React.FC<VaultPassphraseGateProps> = ({
                   <label className="block text-xs font-medium text-stone-700 mb-1.5">
                     {t.gate.encPassphrase}
                   </label>
-                  <input
-                    type="password"
+                  <SecretInput
                     required
                     minLength={8}
+                    autoComplete="new-password"
+                    showStrengthMeter
+                    onGeneratePassphrase={(generated) => {
+                      setPassphrase(generated);
+                      setConfirmPassphrase(generated);
+                    }}
                     value={passphrase}
-                    onChange={(e) => setPassphrase(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    onChange={setPassphrase}
+                    className="px-3.5 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-stone-700 mb-1.5">
                     {t.gate.confirmPassphrase}
                   </label>
-                  <input
-                    type="password"
+                  <SecretInput
                     required
                     minLength={8}
+                    autoComplete="new-password"
                     value={confirmPassphrase}
-                    onChange={(e) => setConfirmPassphrase(e.target.value)}
-                    className="w-full px-3.5 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    onChange={setConfirmPassphrase}
+                    className="px-3.5 py-2 text-sm bg-white border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
                   />
                 </div>
               </div>

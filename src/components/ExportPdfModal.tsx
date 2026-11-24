@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FileDown, Lock, X } from 'lucide-react';
+import { FileDown, KeyRound, Lock, X } from 'lucide-react';
 import { exportZupuPdf, filterMembersForPdf } from '../lib/exportPdf';
 import { useI18n } from '../lib/i18n';
 import { getBranchesFromMetadata, getBranchLabel } from '../lib/roles';
@@ -9,6 +9,7 @@ import type {
   DecryptedMember,
   UserProfile,
 } from '../types/zupu';
+import { SecretInput } from './SecretInput';
 
 interface ExportPdfModalProps {
   open: boolean;
@@ -41,6 +42,10 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
   );
   const [includeSealedTestaments, setIncludeSealedTestaments] = useState(false);
   const [pdfACompliant, setPdfACompliant] = useState(true);
+  const [protectWithPassword, setProtectWithPassword] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [pdfConfirmPassword, setPdfConfirmPassword] = useState('');
+  const [allowPrint, setAllowPrint] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +55,10 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
       setIncludeLivingPII(currentUser.permissions.canViewLivingPII);
       setIncludeSealedTestaments(false);
       setPdfACompliant(true);
+      setProtectWithPassword(false);
+      setPdfPassword('');
+      setPdfConfirmPassword('');
+      setAllowPrint(true);
       setError(null);
     }
   }, [open, lockedBranch, currentUser.permissions.branchScope, currentUser.permissions.canViewLivingPII, initialBranch]);
@@ -64,6 +73,19 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
   const handleDownload = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedPassword = pdfPassword.trim();
+    if (protectWithPassword) {
+      if (trimmedPassword.length < 6) {
+        setError(t.pdf.pdfPasswordMinLengthError);
+        return;
+      }
+      if (pdfPassword !== pdfConfirmPassword) {
+        setError(t.pdf.pdfPasswordMismatchError);
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       await exportZupuPdf({
@@ -76,7 +98,9 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
         includeTreeOverview,
         includeLivingPII,
         includeSealedTestaments,
-        pdfACompliant,
+        pdfACompliant: protectWithPassword ? false : pdfACompliant,
+        password: protectWithPassword ? trimmedPassword : undefined,
+        allowPrint,
       });
       onExported?.();
       onClose();
@@ -94,7 +118,7 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
       aria-modal="true"
       aria-labelledby="export-pdf-title"
     >
-      <div className="w-full max-w-lg bg-[#FBF9F5] border border-stone-200 rounded-xl p-6 sm:p-7 space-y-5">
+      <div className="w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[#FBF9F5] border border-stone-200 rounded-xl p-6 sm:p-7 space-y-5">
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-stone-200">
           <div>
             <p className="text-xs text-stone-500">{t.pdf.modalKicker}</p>
@@ -187,20 +211,100 @@ export const ExportPdfModal: React.FC<ExportPdfModalProps> = ({
             )}
 
             <div className="pt-2 border-t border-stone-100">
-              <label className="flex items-start gap-2.5 text-xs text-stone-800 cursor-pointer">
+              <label
+                className={`flex items-start gap-2.5 text-xs ${
+                  protectWithPassword ? 'text-stone-400 opacity-70 cursor-not-allowed' : 'text-stone-800 cursor-pointer'
+                }`}
+              >
                 <input
                   type="checkbox"
-                  checked={pdfACompliant}
+                  disabled={protectWithPassword}
+                  checked={!protectWithPassword && pdfACompliant}
                   onChange={(e) => setPdfACompliant(e.target.checked)}
                   className="mt-0.5 accent-[#9E2A2B]"
                 />
                 <span>
-                  <span className="font-medium text-stone-900 block">{t.pdf.pdfACompliant}</span>
+                  <span className="font-medium block">{t.pdf.pdfACompliant}</span>
                   <span className="text-[11px] text-stone-500 leading-relaxed">
-                    {t.pdf.pdfACompliantHint}
+                    {protectWithPassword ? t.pdf.pdfAPasswordDisabledNote : t.pdf.pdfACompliantHint}
                   </span>
                 </span>
               </label>
+            </div>
+
+            <div className="pt-2 border-t border-stone-100 space-y-3">
+              <label className="flex items-start gap-2.5 text-xs text-stone-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={protectWithPassword}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setProtectWithPassword(enabled);
+                    if (!enabled) {
+                      setPdfPassword('');
+                      setPdfConfirmPassword('');
+                      setError(null);
+                    }
+                  }}
+                  className="mt-0.5 accent-[#9E2A2B]"
+                />
+                <span>
+                  <span className="font-medium text-stone-900 inline-flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-[#9E2A2B]" />
+                    {t.pdf.protectWithPassword}
+                  </span>
+                  <span className="block text-[11px] text-stone-500 leading-relaxed mt-0.5">
+                    {t.pdf.protectWithPasswordHint}
+                  </span>
+                </span>
+              </label>
+
+              {protectWithPassword && (
+                <div className="pl-6 space-y-3 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-700 mb-1">
+                      {t.pdf.pdfPasswordLabel}
+                    </label>
+                    <SecretInput
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      showStrengthMeter
+                      value={pdfPassword}
+                      onChange={setPdfPassword}
+                      onGeneratePassphrase={(generated) => {
+                        setPdfPassword(generated);
+                        setPdfConfirmPassword(generated);
+                      }}
+                      placeholder={t.pdf.pdfPasswordPlaceholder}
+                      className="px-3 py-2 text-xs bg-[#FBF9F5] border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-stone-700 mb-1">
+                      {t.pdf.pdfConfirmPasswordLabel}
+                    </label>
+                    <SecretInput
+                      required
+                      minLength={6}
+                      autoComplete="new-password"
+                      value={pdfConfirmPassword}
+                      onChange={setPdfConfirmPassword}
+                      placeholder={t.pdf.pdfPasswordPlaceholder}
+                      className="px-3 py-2 text-xs bg-[#FBF9F5] border border-stone-300 rounded-lg focus:outline-none focus:border-[#9E2A2B]"
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-stone-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowPrint}
+                      onChange={(e) => setAllowPrint(e.target.checked)}
+                      className="accent-[#9E2A2B]"
+                    />
+                    <span>{t.pdf.pdfAllowPrint}</span>
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { configurePdfACompliance } from './pdfa';
+import { buildPdfEncryptionOptions, configurePdfACompliance } from './pdfa';
 import type { ClanMetadata, UserProfile } from '../types/zupu';
 
 const PAGE_W = 1400;
@@ -8,10 +8,17 @@ const FONT_SERIF = '"Noto Serif TC", "Noto Serif SC", "Cormorant Garamond", Geor
 const FONT_SANS = '"Plus Jakarta Sans", "PingFang HK", "PingFang SC", sans-serif';
 const FONT_MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
 
+export interface CustodySheetPdfOptions {
+  password?: string;
+  allowPrint?: boolean;
+  pdfACompliant?: boolean;
+}
+
 export async function downloadHeirCustodySheetPdf(
   metadata: ClanMetadata,
   custodian: UserProfile,
-  serverOrigin: string
+  serverOrigin: string,
+  options?: CustodySheetPdfOptions
 ): Promise<void> {
   if (document.fonts?.ready) {
     await document.fonts.ready;
@@ -173,24 +180,39 @@ export async function downloadHeirCustodySheetPdf(
     PAGE_H - 96
   );
 
+  const encryption = buildPdfEncryptionOptions(options?.password, options?.allowPrint !== false);
+  const isEncrypted = Boolean(encryption);
+  const usePdfA = !isEncrypted && options?.pdfACompliant !== false;
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'pt',
     format: 'a4',
     compress: true,
     putOnlyUsedFonts: true,
+    encryption,
   });
-  configurePdfACompliance(doc, {
-    title: `${metadata.clanChineseName} · ${metadata.clanName} Custody Sheet`,
-    subject: `Heir Custody & Passphrase Recovery Sheet (${metadata.keyFingerprint})`,
-    author: `${custodian.chineseName} (${custodian.displayName})`,
-    keywords: `ZupuVault, Custody Sheet, ${metadata.keyFingerprint}, PDF/A-1b`,
-    creator: 'ZupuVault Sovereign Lineage Archive',
-  });
+  if (usePdfA) {
+    configurePdfACompliance(doc, {
+      title: `${metadata.clanChineseName} · ${metadata.clanName} Custody Sheet`,
+      subject: `Heir Custody & Passphrase Recovery Sheet (${metadata.keyFingerprint})`,
+      author: `${custodian.chineseName} (${custodian.displayName})`,
+      keywords: `ZupuVault, Custody Sheet, ${metadata.keyFingerprint}, PDF/A-1b`,
+      creator: 'ZupuVault Sovereign Lineage Archive',
+    });
+  } else {
+    doc.setProperties({
+      title: `${metadata.clanChineseName} · ${metadata.clanName} Custody Sheet`,
+      subject: `Heir Custody & Passphrase Recovery Sheet (${metadata.keyFingerprint})`,
+      author: `${custodian.chineseName} (${custodian.displayName})`,
+      creator: 'ZupuVault Sovereign Lineage Archive',
+    });
+  }
   const a4W = doc.internal.pageSize.getWidth();
   const a4H = doc.internal.pageSize.getHeight();
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   doc.addImage(dataUrl, 'JPEG', 0, 0, a4W, a4H, undefined, 'FAST');
   const slug = metadata.clanName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'zupu';
-  doc.save(`${slug}_heir_custody_sheet_pdfa.pdf`);
+  const suffix = isEncrypted ? '_protected' : usePdfA ? '_pdfa' : '';
+  doc.save(`${slug}_heir_custody_sheet${suffix}.pdf`);
 }

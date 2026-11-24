@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { computeBundleChecksum, createPortableArchive } from '../lib/crypto';
-import { downloadHeirCustodySheetPdf } from '../lib/custodySheetPdf';
+import { CustodySheetPdfModal } from './CustodySheetPdfModal';
 import {
   exportMembersToCsv,
   exportMembersToGedcom,
@@ -76,6 +76,7 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
   const [confirmRollbackRev, setConfirmRollbackRev] = useState<number | null>(null);
   const [snapshotLabel, setSnapshotLabel] = useState('');
   const [bundleChecksum, setBundleChecksum] = useState<string>('...');
+  const [custodyModalOpen, setCustodyModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -430,25 +431,10 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
               )}
               <button
                 type="button"
-                disabled={busy}
-                onClick={async () => {
+                onClick={() => {
                   setError(null);
                   setNotice(null);
-                  setBusy(true);
-                  try {
-                    await downloadHeirCustodySheetPdf(
-                      bundle.metadata,
-                      currentUser,
-                      window.location.origin
-                    );
-                    setNotice(t.mfa.custodySheetSuccess);
-                  } catch (err) {
-                    setError(
-                      err instanceof Error ? err.message : 'Unable to generate custody sheet PDF'
-                    );
-                  } finally {
-                    setBusy(false);
-                  }
+                  setCustodyModalOpen(true);
                 }}
                 className="px-4 py-2 text-xs font-medium border border-stone-300 bg-white hover:bg-stone-50 text-stone-800 rounded-lg inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
               >
@@ -725,6 +711,13 @@ export const OfflineVaultPanel: React.FC<OfflineVaultPanelProps> = ({
           )}
         </section>
       )}
+      <CustodySheetPdfModal
+        open={custodyModalOpen}
+        metadata={bundle.metadata}
+        currentUser={currentUser}
+        onClose={() => setCustodyModalOpen(false)}
+        onExported={() => setNotice(t.mfa.custodySheetSuccess)}
+      />
     </div>
   );
 };

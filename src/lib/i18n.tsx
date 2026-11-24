@@ -543,6 +543,17 @@ export interface TranslationDict {
     pageLabel: string;
     pdfACompliant: string;
     pdfACompliantHint: string;
+    protectWithPassword: string;
+    protectWithPasswordHint: string;
+    pdfPasswordLabel: string;
+    pdfPasswordPlaceholder: string;
+    pdfConfirmPasswordLabel: string;
+    pdfAllowPrint: string;
+    pdfPasswordMinLengthError: string;
+    pdfPasswordMismatchError: string;
+    pdfAPasswordDisabledNote: string;
+    custodyModalTitle: string;
+    custodyModalDesc: string;
   };
   audit: {
     openBtn: string;
@@ -1111,6 +1122,17 @@ const EN_HK: TranslationDict = {
     pageLabel: 'Page',
     pdfACompliant: 'Export as Archival PDF/A-1b (ISO 19005-1)',
     pdfACompliantHint: 'Embeds an sRGB ICC OutputIntent and XMP archival metadata for long-term family preservation.',
+    protectWithPassword: 'Protect PDF with Password (Optional)',
+    protectWithPasswordHint: 'Encrypts the exported PDF with a document-open password. ISO 19005-1 PDF/A archival mode is automatically disabled when encryption is active.',
+    pdfPasswordLabel: 'PDF Open Password',
+    pdfPasswordPlaceholder: 'Minimum 6 characters',
+    pdfConfirmPasswordLabel: 'Confirm PDF Password',
+    pdfAllowPrint: 'Allow printing after unlocking',
+    pdfPasswordMinLengthError: 'PDF password must be at least 6 characters.',
+    pdfPasswordMismatchError: 'PDF passwords do not match.',
+    pdfAPasswordDisabledNote: 'Disabled while PDF password protection is active (ISO 19005-1 PDF/A forbids encrypted files).',
+    custodyModalTitle: 'Export Heir Custody Sheet PDF',
+    custodyModalDesc: 'Generates a printable custody worksheet with vault endpoint, key fingerprint, and blank handwritten passphrase boxes (no secrets embedded).',
   },
   audit: {
     openBtn: 'Duplicate & Link Audit',
@@ -1679,6 +1701,17 @@ const ZH_HK: TranslationDict = {
     pageLabel: '頁次',
     pdfACompliant: '以典藏級 PDF/A-1b（ISO 19005-1）格式匯出',
     pdfACompliantHint: '內嵌 sRGB ICC 色彩設定檔及 XMP 典藏中繼資料，確保跨世代長期存檔相容。',
+    protectWithPassword: '設定 PDF 開啟密碼（選填）',
+    protectWithPasswordHint: '使用開啟密碼加密匯出的 PDF 檔案。啟用密碼保護時，依 ISO 19005-1 規範將自動停用 PDF/A 典藏格式。',
+    pdfPasswordLabel: 'PDF 開啟密碼',
+    pdfPasswordPlaceholder: '至少 6 個字元',
+    pdfConfirmPasswordLabel: '確認 PDF 密碼',
+    pdfAllowPrint: '解鎖後允許列印',
+    pdfPasswordMinLengthError: 'PDF 開啟密碼至少須為 6 個字元。',
+    pdfPasswordMismatchError: '兩次輸入的 PDF 密碼不相符。',
+    pdfAPasswordDisabledNote: '啟用 PDF 密碼保護期間停用（ISO 19005-1 PDF/A 標準不允許加密檔案）。',
+    custodyModalTitle: '匯出繼承人保管單 PDF',
+    custodyModalDesc: '產生可供手寫記錄密語與伺服器端點之保管單 PDF（檔案本身不含任何私密密語）。',
   },
   audit: {
     openBtn: '重複與關聯檢查',
@@ -2247,6 +2280,17 @@ const ZH_CN: TranslationDict = {
     pageLabel: '页次',
     pdfACompliant: '以典藏级 PDF/A-1b（ISO 19005-1）格式导出',
     pdfACompliantHint: '内嵌 sRGB ICC 色彩配置文件与 XMP 归档元数据，确保跨世代长期保存兼容。',
+    protectWithPassword: '设置 PDF 打开密码（可选）',
+    protectWithPasswordHint: '使用打开密码加密导出的 PDF 文件。启用密码保护时，依 ISO 19005-1 规范将自动停用 PDF/A 归档格式。',
+    pdfPasswordLabel: 'PDF 打开密码',
+    pdfPasswordPlaceholder: '至少 6 个字符',
+    pdfConfirmPasswordLabel: '确认 PDF 密码',
+    pdfAllowPrint: '解锁后允许打印',
+    pdfPasswordMinLengthError: 'PDF 打开密码至少须为 6 个字符。',
+    pdfPasswordMismatchError: '两次输入的 PDF 密码不匹配。',
+    pdfAPasswordDisabledNote: '启用 PDF 密码保护期间停用（ISO 19005-1 PDF/A 标准不允许加密文件）。',
+    custodyModalTitle: '导出继承人保管单 PDF',
+    custodyModalDesc: '生成可供手写记录密语与服务器端点的保管单 PDF（文件本身不含任何私密密语）。',
   },
   audit: {
     openBtn: '重复与关联检查',

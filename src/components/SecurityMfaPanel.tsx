@@ -25,17 +25,18 @@ import {
   createPortableArchive,
   verifyVaultPassphrase,
 } from '../lib/crypto';
-import { downloadHeirCustodySheetPdf } from '../lib/custodySheetPdf';
 import { useI18n } from '../lib/i18n';
 import { createOfflineSnapshot } from '../lib/offlineVault';
 import type {
   ActiveSessionSummary,
+  ClanMetadata,
   DecryptedMember,
   EncryptedVaultBundle,
   RecentSignInAlert,
   StorageMode,
   UserProfile,
 } from '../types/zupu';
+import { CustodySheetPdfModal } from './CustodySheetPdfModal';
 import { SecretInput } from './SecretInput';
 
 interface SecurityMfaPanelProps {
@@ -81,7 +82,7 @@ export const SecurityMfaPanel: React.FC<SecurityMfaPanelProps> = ({
   const [archiveBusy, setArchiveBusy] = useState(false);
 
   const [busy, setBusy] = useState(false);
-  const [custodyBusy, setCustodyBusy] = useState(false);
+  const [custodyModalMeta, setCustodyModalMeta] = useState<ClanMetadata | null>(null);
   const [passkeyLabel, setPasskeyLabel] = useState('');
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [editingPasskeyId, setEditingPasskeyId] = useState<string | null>(null);
@@ -867,32 +868,15 @@ export const SecurityMfaPanel: React.FC<SecurityMfaPanelProps> = ({
                         )}
                         <button
                           type="button"
-                          disabled={custodyBusy}
-                          onClick={async () => {
+                          onClick={() => {
                             setError(null);
                             setNotice(null);
-                            setCustodyBusy(true);
-                            try {
-                              await downloadHeirCustodySheetPdf(
-                                justRotatedBundle.metadata,
-                                currentUser,
-                                window.location.origin
-                              );
-                              setNotice(t.mfa.custodySheetSuccess);
-                            } catch (err) {
-                              setError(
-                                err instanceof Error
-                                  ? err.message
-                                  : 'Unable to generate custody sheet PDF'
-                              );
-                            } finally {
-                              setCustodyBusy(false);
-                            }
+                            setCustodyModalMeta(justRotatedBundle.metadata);
                           }}
                           className="flex-1 py-2 px-3 border border-emerald-400 bg-white hover:bg-emerald-100/50 text-emerald-950 text-xs font-medium rounded-lg inline-flex items-center justify-center gap-1.5"
                         >
                           <FileDown className="w-3.5 h-3.5" />
-                          {custodyBusy ? t.mfa.custodySheetGenerating : t.mfa.custodySheetBtn}
+                          {t.mfa.custodySheetBtn}
                         </button>
                       </div>
                     </div>
@@ -910,30 +894,15 @@ export const SecurityMfaPanel: React.FC<SecurityMfaPanelProps> = ({
                   <p className="text-[11px] text-stone-500 leading-relaxed">{t.mfa.custodySheetDesc}</p>
                   <button
                     type="button"
-                    disabled={custodyBusy}
-                    onClick={async () => {
+                    onClick={() => {
                       setError(null);
                       setNotice(null);
-                      setCustodyBusy(true);
-                      try {
-                        await downloadHeirCustodySheetPdf(
-                          metadata,
-                          currentUser,
-                          window.location.origin
-                        );
-                        setNotice(t.mfa.custodySheetSuccess);
-                      } catch (err) {
-                        setError(
-                          err instanceof Error ? err.message : 'Unable to generate custody sheet PDF'
-                        );
-                      } finally {
-                        setCustodyBusy(false);
-                      }
+                      setCustodyModalMeta(metadata);
                     }}
                     className="w-full py-2 px-4 border border-[#9E2A2B]/30 bg-[#FBF9F5] hover:bg-white text-[#9E2A2B] text-xs font-medium rounded-lg inline-flex items-center justify-center gap-1.5"
                   >
                     <FileDown className="w-3.5 h-3.5" />
-                    {custodyBusy ? t.mfa.custodySheetGenerating : t.mfa.custodySheetBtn}
+                    {t.mfa.custodySheetBtn}
                   </button>
                 </div>
               )}
@@ -1107,6 +1076,13 @@ export const SecurityMfaPanel: React.FC<SecurityMfaPanelProps> = ({
           </div>
         </section>
       )}
+      <CustodySheetPdfModal
+        open={Boolean(custodyModalMeta)}
+        metadata={custodyModalMeta}
+        currentUser={currentUser}
+        onClose={() => setCustodyModalMeta(null)}
+        onExported={() => setNotice(t.mfa.custodySheetSuccess)}
+      />
     </div>
   );
 };

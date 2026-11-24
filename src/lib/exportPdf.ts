@@ -5,7 +5,7 @@ import {
   compareClanMembersByGeneration,
   getBranchRank,
 } from './lineageOrder';
-import { configurePdfACompliance } from './pdfa';
+import { buildPdfEncryptionOptions, configurePdfACompliance } from './pdfa';
 import {
   getBranchesFromMetadata,
   getBranchLabel,
@@ -33,6 +33,8 @@ export interface ExportPdfOptions {
   includeLivingPII: boolean;
   includeSealedTestaments: boolean;
   pdfACompliant?: boolean;
+  password?: string;
+  allowPrint?: boolean;
 }
 
 type PageOrientation = 'portrait' | 'landscape';
@@ -1180,13 +1182,17 @@ export async function exportZupuPdf(options: ExportPdfOptions): Promise<void> {
 
   drawRunningChrome(pages, options);
 
-  const usePdfA = options.pdfACompliant !== false;
+  const encryption = buildPdfEncryptionOptions(options.password, options.allowPrint !== false);
+  const isEncrypted = Boolean(encryption);
+  const usePdfA = !isEncrypted && options.pdfACompliant !== false;
+
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
     compress: true,
     putOnlyUsedFonts: true,
+    encryption,
   });
 
   if (usePdfA) {
@@ -1195,6 +1201,13 @@ export async function exportZupuPdf(options: ExportPdfOptions): Promise<void> {
       subject: `${metadata.hallName || 'Ancestral Zupu'} (${metadata.keyFingerprint})`,
       author: `${currentUser.chineseName} (${currentUser.displayName})`,
       keywords: `ZupuVault, ${metadata.clanName}, ${metadata.keyFingerprint}, PDF/A-1b`,
+      creator: 'ZupuVault Sovereign Lineage Archive',
+    });
+  } else {
+    pdf.setProperties({
+      title: `${metadata.clanChineseName} · ${metadata.clanName}`,
+      subject: `${metadata.hallName || 'Ancestral Zupu'} (${metadata.keyFingerprint})`,
+      author: `${currentUser.chineseName} (${currentUser.displayName})`,
       creator: 'ZupuVault Sovereign Lineage Archive',
     });
   }
@@ -1223,5 +1236,6 @@ export async function exportZupuPdf(options: ExportPdfOptions): Promise<void> {
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '') || 'clan_zupu';
   const dateStr = new Date().toISOString().slice(0, 10);
-  pdf.save(`${slug}_zupu_${usePdfA ? 'pdfa_' : ''}${dateStr}.pdf`);
+  const suffix = isEncrypted ? 'protected_' : usePdfA ? 'pdfa_' : '';
+  pdf.save(`${slug}_zupu_${suffix}${dateStr}.pdf`);
 }

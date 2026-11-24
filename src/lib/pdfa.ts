@@ -1,4 +1,4 @@
-import type { jsPDF } from 'jspdf';
+import type { EncryptionOptions, jsPDF } from 'jspdf';
 
 export interface PdfAMetadataOptions {
   title: string;
@@ -236,4 +236,27 @@ export function configurePdfACompliance(doc: jsPDF, meta: PdfAMetadataOptions): 
   });
 
   doc.addMetadata(buildPdfA1bXmpPacket(meta, isoTimestamp), true);
+}
+
+/**
+ * Builds standard PDF encryption options with a cryptographic random owner password
+ * so document permissions (such as restricting printing) cannot be bypassed by viewers
+ * unlocking with only the user password.
+ */
+export function buildPdfEncryptionOptions(
+  password?: string,
+  allowPrint = true
+): EncryptionOptions | undefined {
+  const userPassword = password?.trim() ?? '';
+  if (!userPassword) return undefined;
+
+  const bytes = new Uint8Array(18);
+  globalThis.crypto.getRandomValues(bytes);
+  const ownerPassword = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+
+  return {
+    userPassword,
+    ownerPassword,
+    userPermissions: allowPrint ? ['print'] : [],
+  };
 }
